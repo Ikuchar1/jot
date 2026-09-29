@@ -8,7 +8,7 @@
 **This is a learning project.** When recommending an approach, weigh what I'd learn, not just what's simplest — I'll often pick the new thing over the familiar one (e.g. CORS over a Vite proxy, Scalar over Swagger). Where it's reasonable, match what my team at Tenaska uses (React + Vite + TypeScript, controllers + orchestrators, EF Core).
 
 ## Current Phase
-**Phase 1 — Core todos.** Decisions are in `PHASE-1.md`, broken into GitHub issues #1–#12. Nothing scaffolded yet; next up is #1 (walking skeleton).
+**Phase 1 — Core todos.** Decisions are in `PHASE-1.md`, broken into GitHub issues #1–#12. #1 (walking skeleton) is built; next up is #2 (CI pipeline + branch protection).
 
 ## Docs
 | File | What's in it | Update when |
