@@ -8,7 +8,7 @@
 **This is a learning project.** When recommending an approach, weigh what I'd learn, not just what's simplest — I'll often pick the new thing over the familiar one (e.g. CORS over a Vite proxy, Scalar over Swagger). Where it's reasonable, match what my team at Tenaska uses (React + Vite + TypeScript, controllers + orchestrators, EF Core).
 
 ## Current Phase
-**Phase 1 — Core todos.** Grilling session in progress; nothing scaffolded yet. See `PHASE-1.md`.
+**Phase 1 — Core todos.** Decisions are in `PHASE-1.md`, broken into GitHub issues #1–#12. Nothing scaffolded yet; next up is #1 (walking skeleton).
 
 ## Docs
 | File | What's in it | Update when |
@@ -79,9 +79,16 @@ Up to about 3 agents work at once, each on its own issue, and I can run each one
 > **Rule:** Once an item below is fully done, remove it from this list.
 
 ### Setup
-- [ ] **Run `/to-issues` on `PHASE-1.md`** — once the phase 1 grilling is finished. I run it myself.
-- [ ] **Install Node 24** — `nvm install 24` (Mac is on 22.14 via nvm). Once `.nvmrc` exists, `nvm use` in the repo switches to it.
 - [ ] **Turn on branch protection** — after the CI workflow's first run, add a ruleset on `main`: PRs need CI green, with me on the bypass list.
+
+## Development Flow (enforce these)
+1. **Grill → plan → issues.** A phase's grilling session fills `PHASE-N.md`; `/to-issues` breaks it into vertical-slice GitHub issues — each one a thin, working path through database → API → UI → tests.
+2. **Labels:** `ready-for-agent` = AFK, can be built and merged without me. `ready-for-human` = HITL, needs me (a review, a decision, or a manual step).
+3. **Only pick up an unblocked issue** — check its "Blocked by" section first.
+4. **One issue = one branch = one PR.** Never bundle slices together, and never put a whole phase in one PR.
+5. **Link the PR to its issue:** `Closes #N` in the PR description (one keyword per issue: `Closes #4, closes #5`). Merging the PR into `main` closes the issue — approving it doesn't.
+6. **Trivial commits straight to `main`** can close an issue the same way, with `Closes #N` in the commit message. On a feature branch the keyword does nothing until the commit reaches `main`.
+7. **The ruleset requires green CI, not an approval** — GitHub doesn't let you approve your own PR, so requiring one would block every merge.
 
 ## Git Workflow (enforce these)
 1. **Size decides the flow:**

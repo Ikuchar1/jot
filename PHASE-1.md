@@ -53,6 +53,5 @@ Decisions from the phase 1 grilling session. See `V1-PLAN.md` for the overall pl
 
 ## Next
 
-- **When this file is complete, run `/to-issues`** to break phase 1 into vertical-slice GitHub issues. (Not yet.)
-- **Suggested first slice: a walking skeleton** — Postgres in Compose → API with one `Todo` (add + list) → orval → a UI that adds and shows todos → CI green → branch protection on. Gets all the wiring working while the app is tiny.
-- **Left for build time (small):** how the Inbox is marked in the database, and the order of the Done section.
+- **Broken into GitHub issues #1–#12** (vertical slices). Start with #1, the walking skeleton — Postgres in Compose → API with one `Todo` (add + list) → orval → a UI that adds and shows todos. CI and branch protection follow in #2.
+- **Left for build time (small):** the order of the Done section (#4) and how the Inbox is marked in the database (#7).
