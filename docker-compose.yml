@@ -1,0 +1,24 @@
+# Fixed project name, so the container and volume are the same no matter which folder this runs from
+name: jot
+
+services:
+  db:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: jot
+      POSTGRES_PASSWORD: jot
+      POSTGRES_DB: jot
+    ports:
+      # 5433 on the Mac, because brew Postgres 14 already owns 5432
+      - "5433:5432"
+    volumes:
+      # Postgres 18+ keeps its data under /var/lib/postgresql/<major>/ — mount the parent, not .../data
+      - db-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jot -d jot"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  db-data:
