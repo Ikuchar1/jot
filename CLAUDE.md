@@ -57,7 +57,7 @@ Run `./dev.sh` and `docker compose` from the repo root, `dotnet` commands from `
 Up to about 3 agents work at once, each on its own issue, and I can run each one's app side by side.
 
 1. **One agent = one worktree = one branch = one issue.** A worktree is an extra working folder that shares this repo's Git history. Start an agent in one with `claude -w <name>`; background sessions create their own. They live in `.claude/worktrees/<name>/`.
-2. **The main `todo-list/` folder is mine.** Agents never work in it. I keep it on `main`, or check out an agent's branch there to try it.
+2. **The main `jot/` folder is mine.** Agents never work in it. I keep it on `main`, or check out an agent's branch there to try it.
 3. **Branches follow the Git Workflow below** (`feature/…` / `fix/…` off `main`). If an issue needs an unmerged branch, branch off that one and say so in the PR. New worktrees start from GitHub's `main`, so push `main` before starting agents that need recent commits.
 4. **A branch can be checked out in only one folder at a time.** To check an agent's branch out in the main folder, remove its worktree first. To just try it, run it from the worktree with a slot.
 5. **Run side by side with slots: `./dev.sh <slot>`.** All slots share one Postgres container (port 5433), but each slot gets its own database, created and migrated on first run.
