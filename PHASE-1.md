@@ -1,0 +1,58 @@
+# Phase 1 — Core Todos
+
+Decisions from the phase 1 grilling session. See `V1-PLAN.md` for the overall plan.
+
+## Decided
+
+- **Due dates are optional** — "whenever" todos (e.g. "buy a new phone charger") have no date.
+- **Date without a time = due that day** — "Pay rent, due Oct 1" only becomes overdue once Oct 1 ends. (Changed from an 8am due time, which made anything added for "today" after 8am instantly overdue.) 8am becomes the default *reminder* time for these in phase 4.
+- **Lists** — each todo belongs to exactly one list (e.g. School, Work, Personal) and can be moved between them. Creating lists and moving todos is phase 1; naming a list in a prompt ("in my school list") comes with MCP (phase 2) and Siri (phase 6).
+- **Inbox** — a real, undeletable default list. Todos with no list named land here.
+- **Deleting a list moves its todos to Inbox** — nothing is lost by accident. A confirm dialog asks first ("Delete School? Its 12 todos will move to Inbox."). No undo toast, unlike deleting a todo: lists are deleted rarely, and undo would have to remember which todos to move back.
+- **Done todos go to a collapsed "Done" section** at the bottom of their list, and stay there until deleted. Un-checking one moves it back.
+- **Sort order** — not-done todos sort by due date, soonest first (overdue on top). Undated todos go below all dated ones (see priority below). No manual drag-to-reorder in v1.
+- **List sections** — each list shows three sections: **Due** (dated, soonest first), **Anytime** (no date, by priority then oldest first), and **Done** (collapsed).
+- **Home page is a timeline of everything not done** — every not-done todo from every list, nothing hidden, grouped: **Overdue**, **Today**, **Next 7 days** (by day), **Later** (by date), **Anytime** (no date; by priority, then oldest first). Each todo is tagged with its list. Below it (or in a sidebar on laptop): every list with its count of not-done todos, one tap away.
+- **Notes** — optional free text on a todo (e.g. a link to the assignment).
+- **Priority** — optional: high, medium, or low. No priority unless set, so Siri/Claude never have to guess.
+- **One fixed home time zone: `America/Chicago` (Central)** — "today" and "overdue" are all worked out in Central time, no matter where the server or device is.
+- **Quick-add** — type a title, optionally pick due date/time, list, and priority right there, hit enter. The list picker defaults to the list you're on, so you never have to navigate to a list to add to it. Tap any todo to edit everything. Repeat/reminder pickers join this in phase 4.
+- **Deleting a todo = undo toast** — deleted immediately, "Deleted · Undo" shows for ~5 seconds. No confirm dialog.
+- **Priority only breaks ties** — in Due, the date wins; same due time → high first. In Anytime, sort by priority (high → low → none), then oldest first.
+- **Same day: timed todos first, then date-only** — timed ones in time order, then date-only ones by priority. Everything sorts by when it goes overdue: "Dentist, 3pm" is overdue at 3pm, "Pay rent" (no time) not until midnight.
+- **Offline = read-only** — with no internet, the app shows todos as of the last load; adding or changing waits until you're back online.
+
+## Build
+
+- **Monorepo** — one repo, a folder per app: `api/` (ASP.NET Core API, + MCP server in phase 2), `ui/` (React PWA), `extension/` (Chrome new-tab extension, phase 5). Docs stay at the root.
+- **Local Postgres runs in Docker Compose** — on host port **5433**, so it doesn't collide with the brew Postgres 14 already on 5432. Connect TablePlus to `localhost:5433`.
+- **API and UI run directly on the Mac** — `dotnet watch` for the API and the React dev server for the UI, for instant reloads. Containerizing them waits for phase 3 (Go live).
+- **EF Core (with the Npgsql Postgres provider)** — code-first: C# classes define the tables, EF migrations create and change them. Same as at work.
+- **React + Vite + TypeScript** — plain single-page app talking to the API; `vite-plugin-pwa` makes it an installable PWA and handles the read-only offline cache. Same setup as my team at work.
+- **MUI (Material UI) for components** — free date/time picker with a touch-friendly phone version, Snackbar with an Undo action (the undo toast), Drawer for the sidebar. Chosen over Mantine (close second) and shadcn/ui (no time picker). Work uses DevExtreme, which is paid.
+- **React 19** — latest; work is on 18.3, differences are minor.
+- **TanStack Query for API calls** — caching, re-fetching, and optimistic updates (checking a todo moves it instantly; snaps back if the API call fails). Each action is wrapped in its own hook (e.g. `useCompleteTodo()`), similar to the orchestrator layer at work.
+- **Controllers (not Minimal APIs)** — matches work, along with an orchestrator layer like the one used there.
+- **GitHub Actions CI pipeline** — every push builds the API and UI and runs the tests; green check / red X on GitHub. Free: the repo is public and uses GitHub's standard runners. Any usage is billed to the repo owner (my personal account), never the company's Copilot/org billing.
+- **OpenAPI → orval codegen** — ASP.NET generates an OpenAPI description of the API; orval reads it and generates the TypeScript types and TanStack Query hooks. C# and TypeScript can't drift apart.
+- **CI runs tests + lint** — API integration tests (xUnit + Testcontainers, real throwaway Postgres in Docker), UI unit tests (Vitest), and lint on both sides (ESLint for the UI, `dotnet format --verify-no-changes` for the API).
+- **The API does the grouping** — it returns todos already grouped (Overdue / Today / Next 7 days / Later / Anytime) in Central time; the UI just renders. The MCP server (phase 2) reuses the same logic, and xUnit covers the rules.
+- **ProblemDetails for every API error** — one global handler gives all errors the same standard JSON shape (`status`, `title`, `detail`); the UI's fetch wrapper shows the message in a toast.
+- **Two API layers: Controller → Orchestrator** — controllers handle HTTP only; orchestrators hold the rules and use EF Core's `DbContext` directly (no separate repository or service layer — `DbContext` already acts as a repository). The MCP tools in phase 2 call the same orchestrators.
+- **CORS instead of a Vite proxy** — the UI calls the API's own port directly, and the API has a CORS policy that allows the UI's dev origin (`http://localhost:5173`). The API's address comes from a Vite env var. Chosen to learn how CORS works (it will come up again with the Chrome extension in phase 5).
+- **.NET 10 (LTS)** — newest stable, supported through November 2028. Controllers, EF Core, and DI work the same as on older versions, so it carries over to work.
+- **Scalar for browsing the API** — .NET 10 generates the OpenAPI document but no UI; Scalar shows it with "try it out" and copy-ready request code. Chosen over Swagger UI to try something new.
+- **Git workflow = IronDiary's** — trivial changes straight to `main`; medium or larger on a `feature/` or `fix/` branch + PR; nothing merges without my go-ahead.
+- **Branch protection on `main`** — a GitHub ruleset: a PR can't merge until CI is green, and I'm on the bypass list so trivial commits can still go straight to `main` (CI still runs on them, after the fact). Turned on right after the CI workflow's first run in phase 1 (GitHub can only require a check it has already seen run).
+- **IDs are UUID v7** — for todos and lists. The UI creates the ID for a todo it adds, so optimistic quick-add shows it instantly with its real ID; the API creates it when the caller doesn't (e.g. MCP, Siri). Time-ordered, so Postgres indexes stay compact. Also what full offline mode will need later.
+- **Indexes for the main queries** — declared in EF Core (`HasIndex`) so migrations create them. Primary keys and the todo → list foreign key are indexed automatically (EF indexes foreign keys by convention). Added on purpose: a *partial index* on (`DueDate`, `DueTime`) of not-done todos only (`WHERE NOT done`), for the timeline and overdue queries. Check with `EXPLAIN ANALYZE` whether Postgres actually uses them.
+- **Node 24 (LTS)** — pinned in a `.nvmrc` file at the repo root. nvm on my Mac and `actions/setup-node` in CI (`node-version-file: .nvmrc`) both read it, so they can't drift.
+- **Due date = two columns, in Central wall-clock time** — `DueDate` (`DateOnly` → Postgres `date`) and `DueTime` (`TimeOnly?` → Postgres `time`). No date = both empty; date-only = `DueTime` empty. Mirrors the glossary, avoids the `timestamptz` / `DateTime.Kind` trap, and "3pm" stays 3pm Central across daylight saving. Converting to an exact UTC moment only happens in phase 4, when a reminder fires.
+- **The List entity is `TodoList` in C#** (table `todo_lists`) — a class named `List` collides with C#'s `List<T>` (`List<List>`, `DbSet<List>`). Everything people read — UI, docs, MCP tools — still says "List".
+- **snake_case in Postgres** — the `EFCore.NamingConventions` package with `.UseSnakeCaseNamingConvention()`. C# keeps `DueDate`; Postgres gets `due_date`, so hand-written SQL (TablePlus, `EXPLAIN ANALYZE`) needs no quotes.
+
+## Next
+
+- **When this file is complete, run `/to-issues`** to break phase 1 into vertical-slice GitHub issues. (Not yet.)
+- **Suggested first slice: a walking skeleton** — Postgres in Compose → API with one `Todo` (add + list) → orval → a UI that adds and shows todos → CI green → branch protection on. Gets all the wiring working while the app is tiny.
+- **Left for build time (small):** how the Inbox is marked in the database, and the order of the Done section.
