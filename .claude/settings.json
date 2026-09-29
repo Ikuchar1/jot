@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git fetch *)", "Bash(git status *)", "Bash(git log *)",
+      "Bash(git diff *)", "Bash(git show *)",
+      "Bash(git add *)", "Bash(git commit *)", "Bash(git switch -c *)",
+      "Bash(git push -u origin feature/*)", "Bash(git push -u origin fix/*)",
+      "Bash(git push origin --delete feature/*)", "Bash(git push origin --delete fix/*)",
+      "Bash(gh pr view *)", "Bash(gh pr list *)", "Bash(gh pr checks *)",
+      "Bash(gh pr create *)", "Bash(gh issue view *)", "Bash(gh issue list *)"
+    ]
+  }
+}

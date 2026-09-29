@@ -7,6 +7,10 @@
 !.vscode/extensions.json
 *.swp
 
+# Claude Code: agents' worktrees and personal settings
+.claude/worktrees/
+.claude/settings.local.json
+
 # Local env overrides (committed defaults live in ui/.env.development)
 .env.local
 .env.*.local

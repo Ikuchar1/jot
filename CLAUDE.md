@@ -72,7 +72,13 @@ Up to about 3 agents work at once, each on its own issue, and I can run each one
 7. **Worktree traps:**
    - Files under `.claude/worktrees/` get the macOS `hidden` flag, so .NET skips `appsettings*.json` there. `dev.sh` passes the connection string as an env var. Running `dotnet run` / `dotnet ef` by hand in a worktree needs `ConnectionStrings__Jot=Host=localhost;Port=5433;Database=jot_N;Username=jot;Password=jot`.
    - The Git stash is shared by every worktree. Set work aside with a WIP commit, not `git stash`.
-8. **Clean up after the PR merges:** `git worktree remove .claude/worktrees/<name>`, then `git branch -d <branch>`. `claude -w` offers to remove its worktree when the session ends. If you want the slot's database gone too, drop it with `DROP DATABASE jot_N;` in TablePlus.
+   - "Auto mode classifier gave no verdict" on every shell command means Claude Code's safety check is down, not that the command is wrong. Commands matching a `permissions.allow` rule in `.claude/settings.json` skip that check, so routine git and `gh` keep working. Only I edit that file — Claude isn't allowed to grant itself permissions.
+8. **Close out after the PR merges.** When I say the PR merged, the agent that built it:
+   1. Checks with `gh pr view` that the PR is merged and its issue closed.
+   2. Deletes the branch on GitHub (`git push origin --delete <branch>`), unless GitHub already did.
+   3. Removes its worktree and local branch (exit the worktree with "remove"). If it can't, it gives me `git worktree remove .claude/worktrees/<name>` and `git branch -d <branch>` to run from the main folder.
+
+   Then I `git pull` on `main` in the main folder. The slot's database stays for the next agent on that slot; to drop it, run `DROP DATABASE jot_N;` in TablePlus.
 
 ## Backlog / Next Steps
 
