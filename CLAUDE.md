@@ -90,7 +90,7 @@ Up to about 3 agents work at once, each on its own issue, and I can run each one
    - When unsure, treat it as medium and branch.
 2. For branch + PR work: create the branch off `main` before the first commit. Naming: `feature/<short-desc>` for new work, `fix/<short-desc>` for bug fixes.
 3. `git switch -c <branch>` carries uncommitted changes onto the new branch, so it's fine to branch after editing — just before the first commit.
-4. Push with `git push -u origin <branch>`, then open a PR with `gh pr create`. **A PR can't merge until CI is green** (branch-protection ruleset on `main`). Do not merge without my go-ahead.
+4. Push with `git push -u origin <branch>`, then open a PR with `gh pr create`. **The PR's title and body follow `.github/pull_request_template.md`**, including a `Closes #N` line for each issue it finishes. **A PR can't merge until CI is green** (branch-protection ruleset on `main`). Do not merge without my go-ahead.
 5. I'm on the ruleset's bypass list — that's what lets trivial commits go straight to `main`. Never use the bypass to merge a PR with failing CI.
 6. Only commit/push when I ask.
 7. **Never credit Claude or AI anywhere** — no `Co-Authored-By` trailer in commits, no "Generated with Claude Code" line in PRs.

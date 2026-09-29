@@ -8,7 +8,9 @@ jot/
 ├── CLAUDE.md, CONVENTIONS.md, CONTEXT.md, ...  ← docs live at the root
 ├── docker-compose.yml   ← local Postgres on port 5433
 ├── dev.sh               ← runs Postgres + API + UI for one slot, so worktrees run side by side
-├── .github/workflows/   ← CI: build, test, lint                              (planned)
+├── .github/
+│   ├── pull_request_template.md  ← how every PR's title and body look
+│   └── workflows/       ← CI: build, test, lint                              (planned)
 ├── api/                 ← ASP.NET Core API (.NET 10); MCP server joins in phase 2
 ├── ui/                  ← React + Vite + TypeScript PWA
 └── extension/           ← Chrome new-tab extension, phase 5                  (planned)
