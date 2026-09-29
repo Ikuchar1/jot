@@ -35,10 +35,11 @@
 - **Later phases**: MCP server (official C# MCP SDK, phase 2), Oracle Cloud VM (phase 3, Go live), Chrome extension (phase 5), OpenRouter for Siri (phase 6).
 
 ## Dev Commands
-Run `docker compose` from the repo root, `dotnet` commands from `api/`, and `npm` commands from `ui/`.
+Run `./dev.sh` and `docker compose` from the repo root, `dotnet` commands from `api/`, and `npm` commands from `ui/`.
 
 | What | Command |
 |---|---|
+| Run everything (Postgres + API + UI) | `./dev.sh [slot]` — migrates the slot's database first; Ctrl+C stops it. Slots: see Parallel Workflow |
 | Start Postgres | `docker compose up -d` |
 | First-time API setup | `dotnet tool restore` (installs `dotnet-ef`) |
 | Apply migrations | `dotnet ef database update --project Jot.Api` |
@@ -51,6 +52,27 @@ Run `docker compose` from the repo root, `dotnet` commands from `api/`, and `npm
 | UI tests | `npm test` (`npm run test:watch` while working) |
 | UI lint / build | `npm run lint` / `npm run build` |
 | Regenerate the API client | `dotnet build` in `api/`, then `npm run generate` in `ui/` |
+
+## Parallel Workflow
+Up to about 3 agents work at once, each on its own issue, and I can run each one's app side by side.
+
+1. **One agent = one worktree = one branch = one issue.** A worktree is an extra working folder that shares this repo's Git history. Start an agent in one with `claude -w <name>`; background sessions create their own. They live in `.claude/worktrees/<name>/`.
+2. **The main `todo-list/` folder is mine.** Agents never work in it. I keep it on `main`, or check out an agent's branch there to try it.
+3. **Branches follow the Git Workflow below** (`feature/…` / `fix/…` off `main`). If an issue needs an unmerged branch, branch off that one and say so in the PR. New worktrees start from GitHub's `main`, so push `main` before starting agents that need recent commits.
+4. **A branch can be checked out in only one folder at a time.** To check an agent's branch out in the main folder, remove its worktree first. To just try it, run it from the worktree with a slot.
+5. **Run side by side with slots: `./dev.sh <slot>`.** All slots share one Postgres container (port 5433), but each slot gets its own database, created and migrated on first run.
+
+   | Slot | API | UI | Database |
+   |---|---|---|---|
+   | 0 — main folder (mine) | 5080 | 5173 | `jot` |
+   | N — a worktree (1–9) | 5080 + N | 5173 + N | `jot_N` |
+
+   Give each worktree its own slot. `dev.sh` refuses to start if the slot's ports are taken. In Development, CORS allows any `localhost` port, so every slot's UI can call its own API.
+6. **Tests need no slot.** `dotnet test` starts its own throwaway Postgres (Testcontainers), and UI tests fake the API with MSW, so agents can run tests at the same time.
+7. **Worktree traps:**
+   - Files under `.claude/worktrees/` get the macOS `hidden` flag, so .NET skips `appsettings*.json` there. `dev.sh` passes the connection string as an env var. Running `dotnet run` / `dotnet ef` by hand in a worktree needs `ConnectionStrings__Jot=Host=localhost;Port=5433;Database=jot_N;Username=jot;Password=jot`.
+   - The Git stash is shared by every worktree. Set work aside with a WIP commit, not `git stash`.
+8. **Clean up after the PR merges:** `git worktree remove .claude/worktrees/<name>`, then `git branch -d <branch>`. `claude -w` offers to remove its worktree when the session ends. If you want the slot's database gone too, drop it with `DROP DATABASE jot_N;` in TablePlus.
 
 ## Backlog / Next Steps
 

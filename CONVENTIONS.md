@@ -7,6 +7,7 @@ How this repo is laid out and how code in it should be written. It grows as we b
 jot/
 ├── CLAUDE.md, CONVENTIONS.md, CONTEXT.md, ...  ← docs live at the root
 ├── docker-compose.yml   ← local Postgres on port 5433
+├── dev.sh               ← runs Postgres + API + UI for one slot, so worktrees run side by side
 ├── .github/workflows/   ← CI: build, test, lint                              (planned)
 ├── api/                 ← ASP.NET Core API (.NET 10); MCP server joins in phase 2
 ├── ui/                  ← React + Vite + TypeScript PWA
@@ -67,4 +68,4 @@ Carried over from other projects, and added to as we go.
 - **Never build a date-only string with `toISOString()`** — it converts to UTC first, which can move the date by a day. Build `YYYY-MM-DD` from local date parts. (IronDiary ADR-0003)
 - **EF treats `Guid.Empty` as "no key yet" and silently generates one.** A plain `Guid Id` in a request defaults to `Guid.Empty` when omitted, so an optional ID is `Guid?` and the orchestrator calls `Guid.CreateVersion7()` itself.
 - **`fetch` doesn't reject on 4xx/5xx.** `jotFetch` throws instead — otherwise TanStack Query treats an error response as success.
-- **.NET skips config files with the macOS `hidden` flag.** Claude Code worktrees under `.claude/worktrees/` had it on every file, so `appsettings*.json` silently didn't load (no connection string, no CORS origins). Check with `ls -lO`; work around it by passing config as env vars, e.g. `ConnectionStrings__Jot=...`.
+- **.NET skips config files with the macOS `hidden` flag.** Claude Code worktrees under `.claude/worktrees/` had it on every file, so `appsettings*.json` silently didn't load (no connection string). Check with `ls -lO`; work around it by passing config as env vars, e.g. `ConnectionStrings__Jot=...` — which is what `dev.sh` does. Anything a worktree needs at dev time must work without appsettings.

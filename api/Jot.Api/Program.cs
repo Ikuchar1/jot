@@ -20,10 +20,20 @@ builder.Services.AddScoped<TodoOrchestrator>();
 
 // The UI calls the API on its own port (no Vite proxy), so the browser needs CORS to allow its origin
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
-builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy
-    .WithOrigins(allowedOrigins)
-    .AllowAnyHeader()
-    .AllowAnyMethod()));
+builder.Services.AddCors(options => options.AddDefaultPolicy(policy =>
+{
+    if (builder.Environment.IsDevelopment())
+    {
+        // Each worktree runs its UI on its own port (see dev.sh), so allow any localhost port
+        policy.SetIsOriginAllowed(origin => Uri.TryCreate(origin, UriKind.Absolute, out var uri) && uri.IsLoopback);
+    }
+    else
+    {
+        policy.WithOrigins(allowedOrigins);
+    }
+
+    policy.AllowAnyHeader().AllowAnyMethod();
+}));
 
 var app = builder.Build();
 
