@@ -32,6 +32,7 @@ api/
 
 ```
 ui/
+├── .env.development     ← VITE_API_URL: the API's address for `npm run dev`
 ├── orval.config.ts      ← generates src/api/generated/ from api/Jot.Api/Jot.Api.json
 └── src/
     ├── api/

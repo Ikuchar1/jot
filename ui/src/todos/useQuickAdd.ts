@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { v7 } from 'uuid'
-import { getListTodosQueryKey, useAddTodo } from '../api/generated'
+import { getAddTodoMutationKey, getListTodosQueryKey, useAddTodo } from '../api/generated'
 import type { TodoDto } from '../api/generated/model'
 
 export function useQuickAdd() {
@@ -13,15 +13,21 @@ export function useQuickAdd() {
       onMutate: async ({ data }) => {
         // A list fetch still in flight would overwrite the optimistic todo when it lands
         await queryClient.cancelQueries({ queryKey: todosKey })
-        const previous = queryClient.getQueryData<TodoDto[]>(todosKey)
         // The UI always sends an ID (below), so the optimistic todo already has its real one
         const todo: TodoDto = { id: data.id!, title: data.title }
         queryClient.setQueryData<TodoDto[]>(todosKey, (todos = []) => [...todos, todo])
-        return { previous }
       },
-      // The save failed, so take the todo back out
-      onError: (_error, _variables, context) => {
-        queryClient.setQueryData(todosKey, context?.previous)
+      // The save failed, so take the todo back out. Only this one: restoring a snapshot from before the add
+      // would also drop todos quick-added since then that are still saving.
+      onError: (_error, { data }) => {
+        queryClient.setQueryData<TodoDto[]>(todosKey, (todos) => todos?.filter((todo) => todo.id !== data.id))
+      },
+      // Then re-sync with what the API saved, but only once no other add is still saving (the refetch would
+      // drop its todo). This add still counts as saving here, hence 1.
+      onSettled: () => {
+        if (queryClient.isMutating({ mutationKey: getAddTodoMutationKey() }) === 1) {
+          queryClient.invalidateQueries({ queryKey: todosKey })
+        }
       },
     },
   })

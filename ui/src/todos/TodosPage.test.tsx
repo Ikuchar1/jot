@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { delay, http, HttpResponse } from 'msw'
 import { version } from 'uuid'
 import { expect, test } from 'vitest'
-import type { AddTodoRequest } from '../api/generated/model'
+import type { AddTodoRequest, TodoDto } from '../api/generated/model'
 import { renderWithProviders } from '../test/render'
 import { server } from '../test/server'
 import TodosPage from './TodosPage'
@@ -80,4 +80,50 @@ test('a quick-added todo that fails to save is taken back out', async () => {
   failTheSave()
 
   await waitForElementToBeRemoved(todo)
+})
+
+test('a failed quick-add takes out only its own todo, not one still saving', async () => {
+  let failTheSave!: () => void
+  const saveFails = new Promise<void>((resolve) => (failTheSave = resolve))
+  server.use(
+    http.get(todosUrl, () => HttpResponse.json([])),
+    http.post(todosUrl, async ({ request }) => {
+      const { title } = (await request.json()) as AddTodoRequest
+      if (title === 'Call the dentist') return delay('infinite')
+      await saveFails
+      return new HttpResponse(null, { status: 500 })
+    }),
+  )
+  const user = userEvent.setup()
+  renderWithProviders(<TodosPage />)
+  const quickAdd = screen.getByRole('textbox', { name: 'Add a todo' })
+
+  await user.type(quickAdd, 'Buy milk{Enter}')
+  await user.type(quickAdd, 'Call the dentist{Enter}')
+  const failed = await screen.findByText('Buy milk')
+  expect(await screen.findByText('Call the dentist')).toBeInTheDocument()
+  failTheSave()
+
+  await waitForElementToBeRemoved(failed)
+  expect(screen.getByText('Call the dentist')).toBeInTheDocument()
+})
+
+test('after a quick-add saves, the list catches up with the API', async () => {
+  const saved: TodoDto[] = []
+  server.use(
+    http.get(todosUrl, () => HttpResponse.json(saved)),
+    http.post(todosUrl, async ({ request }) => {
+      const todo = (await request.json()) as TodoDto
+      // Meanwhile another caller (Siri, say) added one too
+      saved.push({ id: '0199a5b2-0000-7000-8000-000000000001', title: 'Call the dentist' }, todo)
+      return HttpResponse.json(todo, { status: 201 })
+    }),
+  )
+  const user = userEvent.setup()
+  renderWithProviders(<TodosPage />)
+
+  await user.type(screen.getByRole('textbox', { name: 'Add a todo' }), 'Buy milk{Enter}')
+
+  expect(await screen.findByText('Call the dentist')).toBeInTheDocument()
+  expect(screen.getByText('Buy milk')).toBeInTheDocument()
 })
