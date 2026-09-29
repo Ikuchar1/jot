@@ -1,6 +1,6 @@
-# Todo List
+# Jot
 
-A todo list that anyone can sign up for, usable from a phone, a laptop browser, and AI assistants.
+Jot is a todo app that anyone can sign up for, usable from a phone, a laptop browser, and AI assistants.
 
 ## Language
 

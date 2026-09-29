@@ -1,7 +1,9 @@
-# Todo List — Project Context - Last Updated September 29th 2026
+# Jot — Project Context - Last Updated September 29th 2026
 
 ## Overview
-A personal todo list usable from my phone (installed PWA), my laptop browser, a Chrome new-tab page, Siri, and Claude (MCP). Single user (me) for v1, locked with a secret key; real sign-ups come later.
+**Jot** is a personal todo app usable from my phone (installed PWA), my laptop browser, a Chrome new-tab page, Siri, and Claude (MCP). Single user (me) for v1, locked with a secret key; real sign-ups come later.
+
+**Jot is the app's name everywhere it names itself** — browser tab, home-screen icon (PWA manifest), OpenAPI/Scalar title, MCP server, Chrome extension, Siri Shortcut, and code (`Jot.Api`, `jot-ui`, the `jot` database). The things in it are still **Todos**.
 
 **This is a learning project.** When recommending an approach, weigh what I'd learn, not just what's simplest — I'll often pick the new thing over the familiar one (e.g. CORS over a Vite proxy, Scalar over Swagger). Where it's reasonable, match what my team at Tenaska uses (React + Vite + TypeScript, controllers + orchestrators, EF Core).
 
@@ -27,13 +29,28 @@ A personal todo list usable from my phone (installed PWA), my laptop browser, a 
 ## Tech Stack
 - **UI** (`ui/`): React 19 + Vite + TypeScript on Node 24 (`.nvmrc`), MUI, TanStack Query, orval (generated API client), `vite-plugin-pwa`
 - **API** (`api/`): ASP.NET Core (.NET 10), controllers + orchestrators, EF Core + Npgsql, ProblemDetails errors, Scalar for browsing the OpenAPI doc
-- **Database**: PostgreSQL in Docker Compose on host port **5433** (brew Postgres 14 already owns 5432). TablePlus → `localhost:5433`.
+- **Database**: PostgreSQL in Docker Compose on host port **5433** (brew Postgres 14 already owns 5432). TablePlus → `localhost:5433`, user / password / database all `jot`.
 - **Time zone**: fixed `America/Chicago` for "today" and "overdue".
 - **Tests / CI**: xUnit + Testcontainers (API, real Postgres), Vitest (UI), ESLint, `dotnet format --verify-no-changes` — all run by GitHub Actions on every push.
 - **Later phases**: MCP server (official C# MCP SDK, phase 2), Oracle Cloud VM (phase 3, Go live), Chrome extension (phase 5), OpenRouter for Siri (phase 6).
 
 ## Dev Commands
-Added once phase 1 is scaffolded.
+Run `docker compose` from the repo root, `dotnet` commands from `api/`, and `npm` commands from `ui/`.
+
+| What | Command |
+|---|---|
+| Start Postgres | `docker compose up -d` |
+| First-time API setup | `dotnet tool restore` (installs `dotnet-ef`) |
+| Apply migrations | `dotnet ef database update --project Jot.Api` |
+| Add a migration | `dotnet ef migrations add <Name> --project Jot.Api --output-dir Data/Migrations` |
+| Run the API | `dotnet run --project Jot.Api` → http://localhost:5080, Scalar at http://localhost:5080/scalar |
+| API tests | `dotnet test` (needs Docker running — Testcontainers starts its own Postgres) |
+| API format check | `dotnet format --verify-no-changes` (drop the flag to fix) |
+| First-time UI setup | `nvm use && npm install` |
+| Run the UI | `npm run dev` → http://localhost:5173 |
+| UI tests | `npm test` (`npm run test:watch` while working) |
+| UI lint / build | `npm run lint` / `npm run build` |
+| Regenerate the API client | `dotnet build` in `api/`, then `npm run generate` in `ui/` |
 
 ## Backlog / Next Steps
 

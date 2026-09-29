@@ -7,4 +7,4 @@ Features deliberately left out of v1, to revisit in a later phase.
 - **Full offline mode** — add and complete todos offline, sync when back online. v1 is read-only offline.
 - **Playwright end-to-end tests** — a script drives a real browser to click through the app. For local development, not the CI pipeline.
 - **Drag-to-reorder todos** — manual ordering within a list. v1 sorts automatically by due date.
-- **Google Calendar integration** — e.g. weekly reminders showing up on my calendar. Direction (todos → calendar, calendar → todos, or two-way) still undecided. Until then, Claude can bridge the todo MCP and Google Calendar connector.
+- **Google Calendar integration** — e.g. weekly reminders showing up on my calendar. Direction (todos → calendar, calendar → todos, or two-way) still undecided. Until then, Claude can bridge the Jot MCP server and the Google Calendar connector.

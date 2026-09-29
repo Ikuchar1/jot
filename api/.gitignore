@@ -1,0 +1,10 @@
+# Build output
+bin/
+obj/
+
+# dotnet test results
+TestResults/
+
+# Per-user IDE files
+.vs/
+*.user
