@@ -28,6 +28,8 @@ Each phase gets its own in-depth grilling session before building.
 2. **MCP server** — Claude Code can manage todos. Runs locally.
 3. **Go live** — secret key, containerize the API and UI, deploy to the Oracle VM with HTTPS, then connect claude.ai and the Claude iPhone app. Needs the Oracle VM ready by then.
    - Comes before Scheduling (moved up from last): iPhone push only works for a PWA installed from an HTTPS site, reminders need an always-on server (not a laptop), and the Siri Shortcut needs a public API. Bonus: real phone use after 3 phases instead of 6.
+   - Two environments on the VM, **prod** and **staging**, each with its own UI, API, and database. Staging is where changes get tested on the real VM before prod. Called staging, not "dev" — "dev" already means local work (`dev.sh`, ASP.NET's Development environment).
+   - Each follows the branch of the same name: `staging` deploys to staging, `main` to prod. (Decided in #2, which only set up the branches.)
 4. **Scheduling** — reminders, repeating todos, and push notifications.
    - Must-have: setting up "every day at a set time" has to be quick and obvious — the thing Apple Reminders makes painful.
    - Must-have: "8am" stays 8am Central across daylight saving. Store the schedule as Central wall-clock time and work out each next firing from it — never "last firing + 24 hours" in UTC, which drifts to 7am when daylight saving ends.
