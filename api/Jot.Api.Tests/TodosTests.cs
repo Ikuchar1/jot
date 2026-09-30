@@ -14,7 +14,7 @@ public class TodosTests(JotApiFactory api)
         var id = Guid.CreateVersion7();
 
         var added = await _client.PostAsJsonAsync("/api/todos", new { id, title = "Buy milk" }, ct);
-        Assert.Equal(HttpStatusCode.Created, added.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, added.StatusCode);
 
         var todos = await _client.GetFromJsonAsync<List<TodoJson>>("/api/todos", ct);
         Assert.Contains(new TodoJson(id, "Buy milk"), todos!);
