@@ -1,0 +1,89 @@
+# Builds, lints and tests the API and the UI. The main and staging rulesets require both jobs (API, UI) to pass.
+name: CI
+
+on:
+  # PR branches are covered by pull_request below; running on their pushes too would run CI twice
+  push:
+    branches: [main, staging]
+  pull_request:
+
+# The token only needs to read the code
+permissions:
+  contents: read
+
+# A new push to a PR cancels that PR's older run, which is testing stale code. Runs on main and staging always finish.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  api:
+    name: API
+    # Ubuntu runners come with Docker, which Testcontainers needs; macOS runners don't
+    runs-on: ubuntu-latest
+    # GitHub's default is 6 hours, which a hung Postgres container would burn through
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: api
+    steps:
+      - uses: actions/checkout@v7
+
+      # Installs the .NET SDK that api/global.json asks for, the way .nvmrc picks Node
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: api/global.json
+
+      - run: dotnet restore
+      - run: dotnet format --verify-no-changes --no-restore
+      # Any compiler warning fails CI, except NuGet's known-vulnerability warnings (NU1901–NU1904):
+      # an advisory with no fixed version yet would otherwise block every PR and release until one ships
+      - run: dotnet build --no-restore -warnaserror -warnNotAsError:NU1901,NU1902,NU1903,NU1904
+
+      # Every build rewrites Jot.Api.json, so a change here means the API changed without committing it
+      - name: Check Jot.Api.json is committed
+        run: |
+          if ! git diff --exit-code -- Jot.Api/Jot.Api.json; then
+            echo "::error::Jot.Api.json is out of date. Run 'dotnet build' in api/ and commit it."
+            exit 1
+          fi
+
+      - name: Check for a missing EF migration
+        run: |
+          dotnet tool restore
+          dotnet ef migrations has-pending-model-changes --project Jot.Api --no-build
+
+      - run: dotnet test --no-build
+
+  ui:
+    name: UI
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: ui
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      - run: npm ci
+      - run: npm run lint
+      # The UI's version of dotnet format --verify-no-changes
+      - run: npm run format:check
+      - run: npm test
+      - run: npm run build
+
+      # orval reads the committed Jot.Api.json, so a change here means the client wasn't regenerated
+      - name: Check the generated API client is up to date
+        run: |
+          npm run generate
+          if [ -n "$(git status --porcelain -- src/api/generated)" ]; then
+            git status --short -- src/api/generated
+            echo "::error::src/api/generated is out of date. Run 'npm run generate' in ui/ and commit it."
+            exit 1
+          fi

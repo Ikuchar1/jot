@@ -1,4 +1,4 @@
-# Conventions - Last Updated September 29th 2026
+# Conventions - Last Updated September 30th 2026
 
 How this repo is laid out and how code in it should be written. It grows as we build: when we settle a pattern or learn something the hard way, add it here.
 
@@ -6,11 +6,16 @@ How this repo is laid out and how code in it should be written. It grows as we b
 ```
 jot/
 ├── CLAUDE.md, CONVENTIONS.md, CONTEXT.md, ...  ← docs live at the root
+├── ISSUE-TEMPLATE.md    ← the shape of ISSUE.md
+├── ISSUE.md             ← a worktree's local copy of its issue; gitignored, never committed
 ├── docker-compose.yml   ← local Postgres on port 5433
 ├── dev.sh               ← runs Postgres + API + UI for one slot, so worktrees run side by side
 ├── .github/
+│   ├── dependabot.yml   ← weekly dependency-update PRs (npm, NuGet, Actions) into staging
 │   ├── pull_request_template.md  ← how every PR's title and body look
-│   └── workflows/       ← CI: build, test, lint                              (planned)
+│   └── workflows/
+│       ├── ci.yml       ← CI: builds, lints and tests the API and UI on every PR and push to main/staging
+│       └── main-from-staging.yml  ← fails any PR into main that isn't from staging
 ├── api/                 ← ASP.NET Core API (.NET 10); MCP server joins in phase 2
 ├── ui/                  ← React + Vite + TypeScript PWA
 └── extension/           ← Chrome new-tab extension, phase 5                  (planned)
@@ -19,7 +24,7 @@ jot/
 ```
 api/
 ├── Jot.slnx
-├── global.json          ← makes `dotnet test` use the Microsoft Testing Platform (xUnit v3 needs it)
+├── global.json          ← pins the .NET 10 SDK (CI reads it too); makes `dotnet test` use the Microsoft Testing Platform (xUnit v3 needs it)
 ├── dotnet-tools.json    ← pins dotnet-ef; `dotnet tool restore` installs it
 ├── Jot.Api/
 │   ├── Controllers/     ← HTTP only
@@ -33,6 +38,7 @@ api/
 ```
 ui/
 ├── .env.development     ← VITE_API_URL: the API's address for `npm run dev`
+├── .prettierrc.json     ← Prettier style: no semicolons, single quotes, 120 wide; CI checks it
 ├── orval.config.ts      ← generates src/api/generated/ from api/Jot.Api/Jot.Api.json
 └── src/
     ├── api/
