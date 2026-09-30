@@ -1,5 +1,5 @@
 <!--
-TITLE: what this PR does, as an imperative sentence. If the PR is squash-merged, the title becomes the commit on main.
+TITLE: what this PR does, as an imperative sentence. PRs into staging are squash-merged, so the title becomes the commit on staging.
   - Start with a verb: "Add quick-add for Todos", "Fix overdue Todos showing under Today"
   - Keep it under about 70 characters, with no trailing period, no issue number and no "feat:" prefix
   - Use the glossary's words: Todo (not task), List (not category)
@@ -15,7 +15,8 @@ One keyword per issue, each on its own line. "Closes #4, #5" only closes #4.
   Closes #4
   Closes #5
 Use "Part of #N" for an issue this PR works on but doesn't finish. That links the issue without closing it.
-Issues close only when the PR merges into main. A PR based on another branch closes nothing when it merges.
+Issues close only when the PR merges into staging, the default branch. A PR based on another branch closes nothing when it merges.
+A release PR (staging → main) has no Closes line: its issues closed when they reached staging.
 -->
 
 ## What and why
@@ -41,7 +42,7 @@ Issues close only when the PR merges into main. A PR based on another branch clo
 <!-- Tick only what actually ran and passed. Delete lines that don't apply. If something failed or was skipped, leave it unticked and say why. -->
 - [ ] `dotnet test`
 - [ ] `dotnet format --verify-no-changes`
-- [ ] `npm test`, `npm run lint`, `npm run build`
+- [ ] `npm test`, `npm run lint`, `npm run format:check`, `npm run build`
 - [ ] API changed: `Jot.Api.json` and the orval client are regenerated and committed
 - [ ] Schema changed: EF migration added with `dotnet ef migrations add`, not edited by hand
 - [ ] A documented decision changed: the doc is updated in this PR
