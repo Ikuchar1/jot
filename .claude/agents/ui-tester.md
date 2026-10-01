@@ -59,5 +59,5 @@ Do one numbered step at a time, then check every `- [ ]` under it:
 
 1. Close the browsers: `playwright-cli -s=<name> close`, and the same for `<name>-phone` if you opened it.
 2. If you started `dev.sh`, stop it: `pgrep -f 'dev\.sh <slot>$'` prints its pid, then `kill -TERM <pid>`. Its trap then stops the API and Vite; `kill -9` skips the trap and leaves them running. Exit code 143 is that SIGTERM, not a failure.
-3. Report the folder and slot you used, then each scenario as its list of checks, each ✅ or ❌, worded as in the steps. For a ❌, say what you saw instead and give the screenshot path.
+3. Report the folder and slot you used, then every scenario with every one of its checks, worded as in the steps: ✅ passed, ❌ failed, or ⚠️ not checked, with why (it needs a real phone, say). Don't skip, merge or summarize checks: the user reads the report against the PR's list. For a ❌, say what you saw instead and give the screenshot path.
 4. Don't tick the PR's checkboxes or edit the PR.

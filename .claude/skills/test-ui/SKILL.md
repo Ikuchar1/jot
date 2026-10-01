@@ -22,6 +22,6 @@ Hand the testing to the `ui-tester` subagent, then bring its report back.
 
    Leave out how the change was built and what you expect to pass. The agent should use the app the way the steps say, not look for what you predicted. It runs in the background: tell the user it's started, then carry on with the conversation.
 
-4. **Present the report** when it comes back: the folder and slot, each scenario's checks as ✅ or ❌, and for each ❌ what the agent saw and its screenshot path. Where a ❌ looks like a setup problem rather than a bug (wrong slot, app didn't start), say so in one line.
+4. **Present the report** when it comes back: the folder and slot, then every check in every scenario as ✅, ❌ or ⚠️ (not checked, and why). For each ❌, what the agent saw and its screenshot path. Where a ❌ looks like a setup problem rather than a bug (wrong slot, app didn't start), say so in one line.
 
-5. **Tick PR checkboxes only when the user asks.** Then tick exactly the checks that came back ✅: read the body with `gh pr view <N> --json body -q .body`, change those `- [ ]` to `- [x]`, and save it with `gh pr edit <N> --body-file <file>`. Leave ❌ and untested checks unticked.
+5. **Don't tick the PR's checkboxes or edit the PR**, even when every check passed. The user ticks them as they test it by hand.
