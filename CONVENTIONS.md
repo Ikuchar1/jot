@@ -10,6 +10,11 @@ jot/
 ├── ISSUE.md             ← a worktree's local copy of its issue; gitignored, never committed
 ├── docker-compose.yml   ← local Postgres on port 5433
 ├── dev.sh               ← runs Postgres + API + UI for one slot, so worktrees run side by side
+├── .claude/
+│   ├── agents/
+│   │   └── ui-tester.md ← walks Testing steps in Chrome with playwright-cli and reports pass/fail; never edits
+│   └── skills/
+│       └── test-ui/     ← /test-ui: briefs ui-tester with a PR's Testing steps, then presents its report
 ├── .github/
 │   ├── dependabot.yml   ← weekly dependency-update PRs (npm, NuGet, Actions) into staging
 │   ├── pull_request_template.md  ← how every PR's title and body look
