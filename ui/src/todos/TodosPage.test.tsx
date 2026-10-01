@@ -26,6 +26,26 @@ test('shows the saved todos', async () => {
   expect(screen.getByText('Call the dentist')).toBeInTheDocument()
 })
 
+test('shows a spinner until the todos load', async () => {
+  server.use(
+    http.get(todosUrl, () => HttpResponse.json([{ id: '0199a5b2-0000-7000-8000-000000000001', title: 'Buy milk' }])),
+  )
+
+  renderWithProviders(<TodosPage />)
+
+  await waitForElementToBeRemoved(screen.getByRole('progressbar', { name: 'Loading todos' }))
+  expect(screen.getByText('Buy milk')).toBeInTheDocument()
+})
+
+test('the spinner stops once loading the todos gives up', async () => {
+  server.use(http.get(todosUrl, () => HttpResponse.error()))
+
+  renderWithProviders(<TodosPage />)
+
+  // The toast says why; a spinner that kept going would say it's still trying
+  await waitForElementToBeRemoved(screen.getByRole('progressbar', { name: 'Loading todos' }))
+})
+
 test('quick-add saves the todo with a UUID v7 the UI created', async () => {
   const sent: AddTodoRequest[] = []
   server.use(
