@@ -19,7 +19,8 @@ builder.Services.AddDbContext<JotDbContext>(options => options
 
 builder.Services.AddScoped<TodoOrchestrator>();
 
-// Every error comes back as ProblemDetails: a broken rule is a 400, and any other exception a 500 that hides its details
+// Every error comes back as ProblemDetails: a broken rule is a 400, any other exception a 500 that hides its details,
+// and an error with no body of its own (a wrong URL's 404) gets one
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<BrokenRuleHandler>();
 
@@ -44,6 +45,8 @@ var app = builder.Build();
 
 // First, so it catches exceptions from everything after it. Without it, Development shows the stack trace.
 app.UseExceptionHandler();
+// Fills in error responses that would otherwise have no body, like routing's 404 for a wrong URL
+app.UseStatusCodePages();
 app.UseCors();
 
 if (app.Environment.IsDevelopment())

@@ -1,4 +1,4 @@
-import { Alert, Snackbar } from '@mui/material'
+import { Alert, Snackbar, type SnackbarCloseReason } from '@mui/material'
 import { MutationCache, QueryCache, QueryClient, QueryClientProvider, type DefaultOptions } from '@tanstack/react-query'
 import { useState, type ReactNode } from 'react'
 
@@ -22,11 +22,18 @@ export default function ApiProvider({ children, defaultOptions }: Props) {
     })
   })
 
+  // Not on a click elsewhere: tapping back into quick-add to try again would hide the message before it's read
+  function handleClose(_event: unknown, reason?: SnackbarCloseReason) {
+    if (reason !== 'clickaway') {
+      setOpen(false)
+    }
+  }
+
   return (
     <QueryClientProvider client={queryClient}>
       {children}
-      <Snackbar open={open} autoHideDuration={6000} onClose={() => setOpen(false)}>
-        <Alert severity="error" variant="filled" onClose={() => setOpen(false)}>
+      <Snackbar open={open} autoHideDuration={6000} onClose={handleClose}>
+        <Alert severity="error" variant="filled" onClose={handleClose}>
           {message}
         </Alert>
       </Snackbar>

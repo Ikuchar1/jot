@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react'
+import { screen, waitForElementToBeRemoved } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { expect, test } from 'vitest'
@@ -55,4 +55,17 @@ test("an error that isn't problem details still shows a toast", async () => {
   renderWithProviders(<TodosPage />)
 
   expect(await screen.findByRole('alert')).toHaveTextContent('Something went wrong (error 502).')
+})
+
+test('clicking elsewhere on the page leaves the toast open', async () => {
+  server.use(http.get(todosUrl, () => HttpResponse.error()))
+  const user = userEvent.setup()
+  renderWithProviders(<TodosPage />)
+  const toast = await screen.findByRole('alert')
+
+  // Like tapping back into quick-add to try again
+  await user.click(screen.getByRole('textbox', { name: 'Add a todo' }))
+
+  // A closing toast animates out in about 200ms
+  await expect(waitForElementToBeRemoved(toast, { timeout: 500 })).rejects.toThrow()
 })
