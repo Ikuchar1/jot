@@ -72,7 +72,7 @@ Keep these trees current: add a line when a folder or important file is created,
 5. **The API's address comes from a Vite env var** — never hardcode it.
 6. **New IDs use `v7()` from the `uuid` package** — not `crypto.randomUUID()`, which makes random v4 IDs.
 7. **UI tests fake the API with MSW, not by mocking hooks or `fetch`** — so the real generated hooks and `jotFetch` run. A request with no handler fails the test.
-8. **Failed API calls show in the toast on their own** — `ApiProvider` catches every query and mutation error. Components don't show their own error messages; a hook's `onError` is only for undoing its own work (like taking an optimistic todo back out).
+8. **Failed API calls show in the toast on their own** — `ApiProvider` catches every query and mutation error. Components don't show their own error messages; a hook's `onError` is only for undoing its own work (like taking an optimistic todo back out). A failed save's toast closes after 6 seconds; a failed load's stays until that load runs again or it's closed with its ×, since nothing else on the page says why the data is missing.
 
 ## Lessons Learned
 Carried over from other projects, and added to as we go.

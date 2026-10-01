@@ -156,6 +156,14 @@ test("quick-add doesn't send a blank title", async () => {
   expect(sent[0].title).toBe('Buy milk')
 })
 
+test("quick-add doesn't suggest what was typed before", () => {
+  server.use(http.get(todosUrl, () => HttpResponse.json([])))
+  renderWithProviders(<TodosPage />)
+
+  // The browser's suggestions, which it saves from every submitted form
+  expect(screen.getByRole('textbox', { name: 'Add a todo' })).toHaveAttribute('autocomplete', 'off')
+})
+
 test('a quick-added todo shows up before the API answers', async () => {
   server.use(
     http.get(todosUrl, () => HttpResponse.json([])),
