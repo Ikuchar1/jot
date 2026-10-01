@@ -54,6 +54,7 @@ Run `./dev.sh` and `docker compose` from the repo root, `dotnet` commands from `
 | UI lint / build | `npm run lint` / `npm run build` |
 | UI format check | `npm run format:check` (`npm run format` to fix) |
 | Regenerate the API client | `dotnet build` in `api/`, then `npm run generate` in `ui/` |
+| Have Claude click through a PR | `/test-ui <PR number>` in Claude Code — a background subagent runs the PR's Testing steps and reports back; needs `npm install -g @playwright/cli@latest` once |
 
 ## Parallel Workflow
 Up to about 3 agents work at once, each on its own issue, and I can run each one's app side by side.

@@ -11,6 +11,10 @@
 .claude/worktrees/
 .claude/settings.local.json
 
+# Playwright's page snapshots and screenshots, written into whatever folder the CLI or MCP server runs from
+.playwright-cli/
+.playwright-mcp/
+
 # Each worktree's local copy of the issue it's building (see Parallel Workflow in CLAUDE.md)
 /ISSUE.md
 
