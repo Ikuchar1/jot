@@ -35,6 +35,22 @@ public class TodosTests(JotApiFactory api)
         Assert.Contains(todo, todos!);
     }
 
+    // The UI won't send a blank title, but MCP and Siri callers don't have the UI's checks
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task Todo_with_a_blank_title_is_rejected_with_a_400_problem_details(string title)
+    {
+        var ct = TestContext.Current.CancellationToken;
+
+        var response = await _client.PostAsJsonAsync("/api/todos", new { title }, ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemJson>(ct);
+        Assert.Equal(new ProblemJson(400, "Bad Request", "A todo needs a title."), problem);
+    }
+
     // The JSON the UI sees, kept apart from the API's DTO so a breaking change to the contract fails here
     private sealed record TodoJson(Guid Id, string Title);
 }

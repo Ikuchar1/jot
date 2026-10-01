@@ -1,5 +1,6 @@
 using Jot.Api.Data;
 using Jot.Api.Dtos;
+using Jot.Api.Errors;
 using Microsoft.EntityFrameworkCore;
 
 namespace Jot.Api.Orchestrators;
@@ -8,6 +9,11 @@ public class TodoOrchestrator(JotDbContext db)
 {
     public async Task<TodoDto> AddAsync(AddTodoRequest request, CancellationToken ct)
     {
+        if (string.IsNullOrWhiteSpace(request.Title))
+        {
+            throw new BrokenRuleException("A todo needs a title.");
+        }
+
         var todo = new Todo { Id = request.Id ?? Guid.CreateVersion7(), Title = request.Title };
         db.Todos.Add(todo);
         await db.SaveChangesAsync(ct);

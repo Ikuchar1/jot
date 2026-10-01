@@ -1,4 +1,5 @@
 using Jot.Api.Data;
+using Jot.Api.Errors;
 using Jot.Api.Orchestrators;
 using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
@@ -17,6 +18,11 @@ builder.Services.AddDbContext<JotDbContext>(options => options
     .UseSnakeCaseNamingConvention());
 
 builder.Services.AddScoped<TodoOrchestrator>();
+
+// Every error comes back as ProblemDetails: a broken rule is a 400, any other exception a 500 that hides its details,
+// and an error with no body of its own (a wrong URL's 404) gets one
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<BrokenRuleHandler>();
 
 // The UI calls the API on its own port (no Vite proxy), so the browser needs CORS to allow its origin
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
@@ -37,6 +43,10 @@ builder.Services.AddCors(options => options.AddDefaultPolicy(policy =>
 
 var app = builder.Build();
 
+// First, so it catches exceptions from everything after it. Without it, Development shows the stack trace.
+app.UseExceptionHandler();
+// Fills in error responses that would otherwise have no body, like routing's 404 for a wrong URL
+app.UseStatusCodePages();
 app.UseCors();
 
 if (app.Environment.IsDevelopment())

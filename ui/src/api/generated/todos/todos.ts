@@ -25,10 +25,12 @@ import type {
 
 import type {
   AddTodoRequest,
+  ProblemDetails,
   TodoDto
 } from '../model';
 
 import { jotFetch } from '../../fetcher';
+import type { ErrorType } from '../../fetcher';
 
 
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
@@ -80,7 +82,7 @@ export const getListTodosQueryKey = () => {
     }
 
 
-export const getListTodosQueryOptions = <TData = Awaited<ReturnType<typeof listTodos>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTodos>>, TError, TData>>, request?: SecondParameter<typeof jotFetch>}
+export const getListTodosQueryOptions = <TData = Awaited<ReturnType<typeof listTodos>>, TError = ErrorType<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTodos>>, TError, TData>>, request?: SecondParameter<typeof jotFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -99,10 +101,10 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 }
 
 export type ListTodosQueryResult = NonNullable<Awaited<ReturnType<typeof listTodos>>>
-export type ListTodosQueryError = unknown
+export type ListTodosQueryError = ErrorType<unknown>
 
 
-export function useListTodos<TData = Awaited<ReturnType<typeof listTodos>>, TError = unknown>(
+export function useListTodos<TData = Awaited<ReturnType<typeof listTodos>>, TError = ErrorType<unknown>>(
   options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTodos>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof listTodos>>,
@@ -112,7 +114,7 @@ export function useListTodos<TData = Awaited<ReturnType<typeof listTodos>>, TErr
       >, request?: SecondParameter<typeof jotFetch>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useListTodos<TData = Awaited<ReturnType<typeof listTodos>>, TError = unknown>(
+export function useListTodos<TData = Awaited<ReturnType<typeof listTodos>>, TError = ErrorType<unknown>>(
   options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTodos>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof listTodos>>,
@@ -122,12 +124,12 @@ export function useListTodos<TData = Awaited<ReturnType<typeof listTodos>>, TErr
       >, request?: SecondParameter<typeof jotFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useListTodos<TData = Awaited<ReturnType<typeof listTodos>>, TError = unknown>(
+export function useListTodos<TData = Awaited<ReturnType<typeof listTodos>>, TError = ErrorType<unknown>>(
   options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTodos>>, TError, TData>>, request?: SecondParameter<typeof jotFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 
-export function useListTodos<TData = Awaited<ReturnType<typeof listTodos>>, TError = unknown>(
+export function useListTodos<TData = Awaited<ReturnType<typeof listTodos>>, TError = ErrorType<unknown>>(
   options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTodos>>, TError, TData>>, request?: SecondParameter<typeof jotFetch>}
  , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
@@ -183,7 +185,7 @@ return jotFetch<TodoDto>(getAddTodoUrl(),
 
 export const getAddTodoMutationKey = () => ['addTodo'] as const;
 
-export const getAddTodoMutationOptions = <TError = unknown,
+export const getAddTodoMutationOptions = <TError = ErrorType<ProblemDetails>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addTodo>>, TError,AddTodoMutationVariables, TContext>, request?: SecondParameter<typeof jotFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof addTodo>>, TError,AddTodoMutationVariables, TContext> => {
 
@@ -212,10 +214,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type AddTodoMutationResult = NonNullable<Awaited<ReturnType<typeof addTodo>>>
     export type AddTodoMutationBody = AddTodoRequest
-    export type AddTodoMutationError = unknown
+    export type AddTodoMutationError = ErrorType<ProblemDetails>
     export type AddTodoMutationVariables = {data: AddTodoRequest}
 
-    export const useAddTodo = <TError = unknown,
+    export const useAddTodo = <TError = ErrorType<ProblemDetails>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addTodo>>, TError,AddTodoMutationVariables, TContext>, request?: SecondParameter<typeof jotFetch>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof addTodo>>,

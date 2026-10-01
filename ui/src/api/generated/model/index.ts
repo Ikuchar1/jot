@@ -6,4 +6,5 @@
  */
 
 export * from './addTodoRequest';
+export * from './problemDetails';
 export * from './todoDto';

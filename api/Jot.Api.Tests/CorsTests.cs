@@ -1,3 +1,5 @@
+using System.Net;
+using System.Net.Http.Json;
 using Microsoft.AspNetCore.Hosting;
 
 namespace Jot.Api.Tests;
@@ -24,6 +26,19 @@ public class CorsTests(JotApiFactory api)
         var response = await SendPreflight(_client, "https://evil.example");
 
         Assert.False(response.Headers.Contains("Access-Control-Allow-Origin"));
+    }
+
+    // Without the header the browser hides the response, so the UI couldn't show the error's message
+    [Fact]
+    public async Task The_ui_can_read_an_error_response()
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, "/api/todos") { Content = JsonContent.Create(new { title = "" }) };
+        request.Headers.Add("Origin", "http://localhost:5173");
+
+        var response = await _client.SendAsync(request, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("http://localhost:5173", Assert.Single(response.Headers.GetValues("Access-Control-Allow-Origin")));
     }
 
     [Fact]
