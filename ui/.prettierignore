@@ -1,0 +1,6 @@
+# Prettier also skips everything in .gitignore (node_modules, dist)
+
+# orval writes src/api/generated — it's regenerated, never hand-edited, so don't format it
+src/api/generated
+# npm writes the lockfile
+package-lock.json

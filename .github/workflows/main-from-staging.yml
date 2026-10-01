@@ -1,0 +1,25 @@
+# Only staging can merge into main. The main ruleset requires this check, since a ruleset can't limit which branch a PR comes from.
+# Kept out of ci.yml on purpose: there it would be skipped on PRs into staging, and a skipped check counts as passed,
+# so a PR retargeted from staging to main would keep that pass.
+name: Main from staging
+
+on:
+  pull_request:
+    branches: [main]
+    # edited: runs again when a PR's base is switched to main
+    types: [opened, synchronize, reopened, edited]
+
+# The check reads nothing from the repo, so the token gets no permissions
+permissions: {}
+
+jobs:
+  from-staging:
+    name: From staging
+    runs-on: ubuntu-latest
+    steps:
+      # Compared in `if:`, not in the script: a branch name is user input and must never be pasted into a shell
+      - name: Check the PR comes from this repo's staging branch
+        if: github.head_ref != 'staging' || github.event.pull_request.head.repo.full_name != github.repository
+        run: |
+          echo "::error::Only staging can merge into main. Point this PR at staging instead."
+          exit 1
