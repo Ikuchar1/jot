@@ -31,6 +31,7 @@ api/
 │   ├── Orchestrators/   ← the rules; use JotDbContext directly
 │   ├── Dtos/            ← request/response shapes — what the OpenAPI doc describes
 │   ├── Data/            ← EF entities, JotDbContext, Migrations/
+│   ├── Errors/          ← BrokenRuleException, and the handler that turns it into a 400 ProblemDetails
 │   └── Jot.Api.json     ← OpenAPI doc, rewritten on every build; orval reads it
 └── Jot.Api.Tests/       ← xUnit v3 + Testcontainers, through HTTP against real Postgres
 ```
@@ -42,7 +43,8 @@ ui/
 ├── orval.config.ts      ← generates src/api/generated/ from api/Jot.Api/Jot.Api.json
 └── src/
     ├── api/
-    │   ├── fetcher.ts   ← jotFetch: the one place that calls fetch
+    │   ├── ApiProvider.tsx  ← the QueryClient, and the toast that shows any failed call
+    │   ├── fetcher.ts   ← jotFetch: the one place that calls fetch; turns errors into readable messages
     │   └── generated/   ← orval output — committed, never edited by hand
     ├── todos/           ← the Todos page, quick-add, and their tests
     └── test/            ← Vitest setup, MSW server, renderWithProviders
@@ -60,6 +62,7 @@ Keep these trees current: add a line when a folder or important file is created,
 8. **The List entity is `TodoList`, on purpose** — `List` would collide with C#'s `List<T>`. Keep "List" in everything people read (UI, docs, MCP tools); don't rename the class back.
 9. **Every action gets a route `Name`** — it becomes the OpenAPI operationId, which orval turns into the hook name (`[HttpPost(Name = "AddTodo")]` → `useAddTodo`).
 10. **Commit `Jot.Api.json` with the change that caused it** — the API contract change then shows up in the PR diff.
+11. **A request that breaks a rule throws `BrokenRuleException` from the orchestrator** — it becomes a 400 ProblemDetails whose `detail` the UI shows as-is, so write the message for the user. Not DataAnnotations: those only run over HTTP, so MCP tools would skip them.
 
 ## UI Rules (enforce these)
 1. **Don't hand-write or hand-edit API types or hooks** — orval generates them from the OpenAPI doc. Change the API, then regenerate.
@@ -69,6 +72,7 @@ Keep these trees current: add a line when a folder or important file is created,
 5. **The API's address comes from a Vite env var** — never hardcode it.
 6. **New IDs use `v7()` from the `uuid` package** — not `crypto.randomUUID()`, which makes random v4 IDs.
 7. **UI tests fake the API with MSW, not by mocking hooks or `fetch`** — so the real generated hooks and `jotFetch` run. A request with no handler fails the test.
+8. **Failed API calls show in the toast on their own** — `ApiProvider` catches every query and mutation error. Components don't show their own error messages; a hook's `onError` is only for undoing its own work (like taking an optimistic todo back out).
 
 ## Lessons Learned
 Carried over from other projects, and added to as we go.
@@ -76,5 +80,6 @@ Carried over from other projects, and added to as we go.
 - **Npgsql only writes a `DateTime` to a `timestamptz` column when `Kind == Utc`** — `Unspecified` throws. (IronDiary)
 - **Never build a date-only string with `toISOString()`** — it converts to UTC first, which can move the date by a day. Build `YYYY-MM-DD` from local date parts. (IronDiary ADR-0003)
 - **EF treats `Guid.Empty` as "no key yet" and silently generates one.** A plain `Guid Id` in a request defaults to `Guid.Empty` when omitted, so an optional ID is `Guid?` and the orchestrator calls `Guid.CreateVersion7()` itself.
+- **In Development, an unhandled exception gets the developer exception page — a plain-text stack trace, not ProblemDetails** — unless `app.UseExceptionHandler()` comes first in the pipeline. Tests run in Development, so the 500 ProblemDetails test caught it.
 - **`fetch` doesn't reject on 4xx/5xx.** `jotFetch` throws instead — otherwise TanStack Query treats an error response as success.
 - **.NET skips config files with the macOS `hidden` flag.** Claude Code worktrees under `.claude/worktrees/` had it on every file, so `appsettings*.json` silently didn't load (no connection string). Check with `ls -lO`; work around it by passing config as env vars, e.g. `ConnectionStrings__Jot=...` — which is what `dev.sh` does. Anything a worktree needs at dev time must work without appsettings.

@@ -46,6 +46,29 @@ test('quick-add saves the todo with a UUID v7 the UI created', async () => {
   expect(version(sent[0].id!)).toBe(7)
 })
 
+test("quick-add doesn't send a blank title", async () => {
+  const sent: AddTodoRequest[] = []
+  server.use(
+    http.get(todosUrl, () => HttpResponse.json([])),
+    http.post(todosUrl, async ({ request }) => {
+      const body = (await request.json()) as AddTodoRequest
+      sent.push(body)
+      return HttpResponse.json(body, { status: 201 })
+    }),
+  )
+  const user = userEvent.setup()
+  renderWithProviders(<TodosPage />)
+  const quickAdd = screen.getByRole('textbox', { name: 'Add a todo' })
+
+  await user.type(quickAdd, '   {Enter}')
+  await user.clear(quickAdd)
+  await user.type(quickAdd, 'Buy milk{Enter}')
+
+  // Had the blank been sent, it would be first
+  await waitFor(() => expect(sent).toHaveLength(1))
+  expect(sent[0].title).toBe('Buy milk')
+})
+
 test('a quick-added todo shows up before the API answers', async () => {
   server.use(
     http.get(todosUrl, () => HttpResponse.json([])),

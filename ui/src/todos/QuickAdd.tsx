@@ -8,6 +8,10 @@ export default function QuickAdd() {
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault()
+    // The API would turn it down anyway; this saves the round trip and the toast
+    if (!title.trim()) {
+      return
+    }
     add(title)
     setTitle('')
   }

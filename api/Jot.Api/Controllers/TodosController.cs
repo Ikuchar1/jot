@@ -14,6 +14,7 @@ public class TodosController(TodoOrchestrator todos) : ControllerBase
 
     [HttpPost(Name = "AddTodo")]
     [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
     public async Task<ActionResult<TodoDto>> AddTodo(AddTodoRequest request, CancellationToken ct)
     {
         var todo = await todos.AddAsync(request, ct);
