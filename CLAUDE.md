@@ -1,4 +1,4 @@
-# Jot — Project Context - Last Updated September 30th 2026
+# Jot — Project Context - Last Updated October 1st 2026
 
 ## Overview
 **Jot** is a personal todo app usable from my phone (installed PWA), my laptop browser, a Chrome new-tab page, Siri, and Claude (MCP). Single user (me) for v1, locked with a secret key; real sign-ups come later.
@@ -8,7 +8,7 @@
 **This is a learning project.** When recommending an approach, weigh what I'd learn, not just what's simplest — I'll often pick the new thing over the familiar one (e.g. CORS over a Vite proxy, Scalar over Swagger). Where it's reasonable, match what my team at Tenaska uses (React + Vite + TypeScript, controllers + orchestrators, EF Core).
 
 ## Current Phase
-**Phase 1 — Core todos.** Decisions are in `PHASE-1.md`, broken into GitHub issues #1–#12. #1 (walking skeleton), #2 (CI pipeline + branch protection) and #3 (API errors show as a toast) are built; next up is #4 (complete a todo).
+**Phase 1 — Core todos.** Decisions are in `PHASE-1.md`, broken into GitHub issues #1–#12. #1 (walking skeleton), #2 (CI pipeline + branch protection), #3 (API errors show as a toast) and #4 (complete a todo) are built; next up is #5 (delete a todo with undo toast).
 
 ## Docs
 | File | What's in it | Update when |

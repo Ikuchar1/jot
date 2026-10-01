@@ -1,4 +1,4 @@
-# Conventions - Last Updated September 30th 2026
+# Conventions - Last Updated October 1st 2026
 
 How this repo is laid out and how code in it should be written. It grows as we build: when we settle a pattern or learn something the hard way, add it here.
 
@@ -36,7 +36,7 @@ api/
 │   ├── Orchestrators/   ← the rules; use JotDbContext directly
 │   ├── Dtos/            ← request/response shapes — what the OpenAPI doc describes
 │   ├── Data/            ← EF entities, JotDbContext, Migrations/
-│   ├── Errors/          ← BrokenRuleException, and the handler that turns it into a 400 ProblemDetails
+│   ├── Errors/          ← BrokenRuleException, NotFoundException, and the handler that turns them into a 400 / 404 ProblemDetails
 │   └── Jot.Api.json     ← OpenAPI doc, rewritten on every build; orval reads it
 └── Jot.Api.Tests/       ← xUnit v3 + Testcontainers, through HTTP against real Postgres
 ```
@@ -51,7 +51,7 @@ ui/
     │   ├── ApiProvider.tsx  ← the QueryClient, and the toast that shows any failed call
     │   ├── fetcher.ts   ← jotFetch: the one place that calls fetch; turns errors into readable messages
     │   └── generated/   ← orval output — committed, never edited by hand
-    ├── todos/           ← the Todos page, quick-add, and their tests
+    ├── todos/           ← the Todos page (with its Done section), quick-add, checking a todo, and their tests
     └── test/            ← Vitest setup, MSW server, renderWithProviders
 ```
 Keep these trees current: add a line when a folder or important file is created, and drop "(planned)" once it exists.
@@ -67,17 +67,18 @@ Keep these trees current: add a line when a folder or important file is created,
 8. **The List entity is `TodoList`, on purpose** — `List` would collide with C#'s `List<T>`. Keep "List" in everything people read (UI, docs, MCP tools); don't rename the class back.
 9. **Every action gets a route `Name`** — it becomes the OpenAPI operationId, which orval turns into the hook name (`[HttpPost(Name = "AddTodo")]` → `useAddTodo`).
 10. **Commit `Jot.Api.json` with the change that caused it** — the API contract change then shows up in the PR diff.
-11. **A request that breaks a rule throws `BrokenRuleException` from the orchestrator** — it becomes a 400 ProblemDetails whose `detail` the UI shows as-is, so write the message for the user. Not DataAnnotations: those only run over HTTP, so MCP tools would skip them.
+11. **A request that breaks a rule throws `BrokenRuleException` from the orchestrator** — it becomes a 400 ProblemDetails whose `detail` the UI shows as-is, so write the message for the user. Not DataAnnotations: those only run over HTTP, so MCP tools would skip them. A request for a todo or list that doesn't exist throws `NotFoundException` the same way, and gets a 404.
 
 ## UI Rules (enforce these)
 1. **Don't hand-write or hand-edit API types or hooks** — orval generates them from the OpenAPI doc. Change the API, then regenerate.
-2. **Components never call `fetch` directly** — one TanStack Query hook per action (e.g. `useCompleteTodo()`).
+2. **Components never call `fetch` directly** — one TanStack Query hook per action (e.g. `useSetTodoDone()`).
 3. **The UI doesn't group or sort by date** — it renders the groups the API returns.
 4. **Reach for an MUI component before building a custom one.**
 5. **The API's address comes from a Vite env var** — never hardcode it.
 6. **New IDs use `v7()` from the `uuid` package** — not `crypto.randomUUID()`, which makes random v4 IDs.
 7. **UI tests fake the API with MSW, not by mocking hooks or `fetch`** — so the real generated hooks and `jotFetch` run. A request with no handler fails the test.
 8. **Failed API calls show in the toast on their own** — `ApiProvider` catches every query and mutation error. Components don't show their own error messages; a hook's `onError` is only for undoing its own work (like taking an optimistic todo back out). A failed save's toast closes after 6 seconds; a failed load's stays until that load runs again or it's closed with its ×, since nothing else on the page says why the data is missing.
+9. **An optimistic change to the todos undoes only itself, then calls `resyncTodos`** — `onError` reverts just that todo, never a snapshot from before it (that would undo other changes still saving), and `onSettled` calls `resyncTodos`, which reloads the list only once nothing else is saving.
 
 ## Lessons Learned
 Carried over from other projects, and added to as we go.
@@ -87,5 +88,7 @@ Carried over from other projects, and added to as we go.
 - **EF treats `Guid.Empty` as "no key yet" and silently generates one.** A plain `Guid Id` in a request defaults to `Guid.Empty` when omitted, so an optional ID is `Guid?` and the orchestrator calls `Guid.CreateVersion7()` itself.
 - **In Development, an unhandled exception gets the developer exception page unless `app.UseExceptionHandler()` comes first in the pipeline.** With `AddProblemDetails()` registered, that page answers with ProblemDetails too, but it includes the exception's message and stack trace: the status and content type look right while it leaks internals. Tests run in Development, so the 500 test checks the body for the exception's message.
 - **Routing's 404 (wrong URL) and 405 (wrong method) have no body**, even with `AddProblemDetails()` registered. `app.UseStatusCodePages()` gives any error response without a body a ProblemDetails.
+- **`expect(waitForElementToBeRemoved(el)).rejects.toThrow()` passes when the element is already gone** — it throws right away for an element that's already removed, so a test meant to prove something *stays* passes even when it vanished during the `user.click` before. Assert "still there" with `waitFor(() => expect(screen.queryByText(...)).not.toBeInTheDocument(), { timeout })` and `rejects.toThrow()` instead, and watch it fail once.
+- **.NET's `Guid.CreateVersion7()` isn't in order within a millisecond** — the bits after the timestamp are random, so two IDs made in the same millisecond can sort either way. The npm `uuid` package's `v7()` keeps a counter, so the UI's IDs stay in creation order. Sorting by ID is creation order only to the millisecond for todos the API makes up an ID for (MCP, Siri).
 - **`fetch` doesn't reject on 4xx/5xx.** `jotFetch` throws instead — otherwise TanStack Query treats an error response as success.
 - **.NET skips config files with the macOS `hidden` flag.** Claude Code worktrees under `.claude/worktrees/` had it on every file, so `appsettings*.json` silently didn't load (no connection string). Check with `ls -lO`; work around it by passing config as env vars, e.g. `ConnectionStrings__Jot=...` — which is what `dev.sh` does. Anything a worktree needs at dev time must work without appsettings.

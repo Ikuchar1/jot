@@ -21,4 +21,11 @@ public class TodosController(TodoOrchestrator todos) : ControllerBase
         // No get-one-todo endpoint yet, so there's no URL for a Location header
         return Created((string?)null, todo);
     }
+
+    // Checking or un-checking a todo. A PUT, so sending it again (a retry) changes nothing more.
+    [HttpPut("{id:guid}/done", Name = "SetTodoDone")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    public Task<TodoDto> SetTodoDone(Guid id, SetTodoDoneRequest request, CancellationToken ct) =>
+        todos.SetDoneAsync(id, request.Done, ct);
 }

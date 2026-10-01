@@ -36,6 +36,10 @@ _Avoid_: Soon, later, next up
 A not-done todo with no due date.
 _Avoid_: Someday, undated, unscheduled
 
+**Done**:
+A todo that has been checked off. Done todos wait in a collapsed section at the bottom of their list until deleted; un-checking one makes it not done again.
+_Avoid_: Finished, archived, closed
+
 **Reminder**:
 A scheduled nudge about a todo. It fires once, or repeats at a fixed interval from a start time (e.g. every 4 hours from 8am).
 _Avoid_: Alert, notification
