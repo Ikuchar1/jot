@@ -101,6 +101,77 @@
           }
         }
       }
+    },
+    "/api/todos/{id}/done": {
+      "put": {
+        "tags": [
+          "Todos"
+        ],
+        "operationId": "SetTodoDone",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetTodoDoneRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetTodoDoneRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetTodoDoneRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/TodoDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TodoDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TodoDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -161,10 +232,22 @@
           }
         }
       },
+      "SetTodoDoneRequest": {
+        "required": [
+          "done"
+        ],
+        "type": "object",
+        "properties": {
+          "done": {
+            "type": "boolean"
+          }
+        }
+      },
       "TodoDto": {
         "required": [
           "id",
-          "title"
+          "title",
+          "done"
         ],
         "type": "object",
         "properties": {
@@ -174,6 +257,9 @@
           },
           "title": {
             "type": "string"
+          },
+          "done": {
+            "type": "boolean"
           }
         }
       }

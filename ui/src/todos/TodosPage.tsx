@@ -1,6 +1,9 @@
-import { Box, Button, CircularProgress, List, ListItem, ListItemText } from '@mui/material'
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import { Accordion, AccordionDetails, AccordionSummary, Box, Button, CircularProgress, List } from '@mui/material'
 import { useListTodos } from '../api/generated'
+import type { TodoDto } from '../api/generated/model'
 import QuickAdd from './QuickAdd'
+import TodoItem from './TodoItem'
 
 export default function TodosPage() {
   const { data: todos, isError, isFetching, refetch } = useListTodos()
@@ -10,13 +13,7 @@ export default function TodosPage() {
       <QuickAdd />
       {/* Todos that loaded stay even if a later reload fails; the toast says why */}
       {todos && (todos.length > 0 || !isError) ? (
-        <List>
-          {todos.map((todo) => (
-            <ListItem key={todo.id}>
-              <ListItemText primary={todo.title} />
-            </ListItem>
-          ))}
-        </List>
+        <TodoSections todos={todos} />
       ) : (
         // Otherwise a spinner while it's trying (retries included), so an API that can't be reached doesn't look like
         // an empty list, and once it gives up, a way to try again
@@ -27,6 +24,35 @@ export default function TodosPage() {
             <CircularProgress aria-label="Loading todos" />
           )}
         </Box>
+      )}
+    </>
+  )
+}
+
+// The API sends the todos in order, done ones last, so this only splits them; it doesn't sort
+function TodoSections({ todos }: { todos: TodoDto[] }) {
+  const notDone = todos.filter((todo) => !todo.done)
+  const done = todos.filter((todo) => todo.done)
+
+  return (
+    <>
+      <List>
+        {notDone.map((todo) => (
+          <TodoItem key={todo.id} todo={todo} />
+        ))}
+      </List>
+      {done.length > 0 && (
+        // Collapsed until opened, and its todos aren't rendered until then
+        <Accordion disableGutters elevation={0} slotProps={{ transition: { unmountOnExit: true } }}>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>Done ({done.length})</AccordionSummary>
+          <AccordionDetails sx={{ p: 0 }}>
+            <List>
+              {done.map((todo) => (
+                <TodoItem key={todo.id} todo={todo} />
+              ))}
+            </List>
+          </AccordionDetails>
+        </Accordion>
       )}
     </>
   )

@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { delay, http, HttpResponse } from 'msw'
 import { version } from 'uuid'
 import { expect, test } from 'vitest'
-import type { AddTodoRequest, TodoDto } from '../api/generated/model'
+import type { AddTodoRequest, SetTodoDoneRequest, TodoDto } from '../api/generated/model'
 import { renderWithProviders } from '../test/render'
 import { server } from '../test/server'
 import TodosPage from './TodosPage'
@@ -24,6 +24,180 @@ test('shows the saved todos', async () => {
 
   expect(await screen.findByText('Buy milk')).toBeInTheDocument()
   expect(screen.getByText('Call the dentist')).toBeInTheDocument()
+})
+
+test('done todos wait in a collapsed Done section that opens when clicked', async () => {
+  server.use(
+    http.get(todosUrl, () =>
+      HttpResponse.json([
+        { id: '0199a5b2-0000-7000-8000-000000000001', title: 'Buy milk', done: false },
+        { id: '0199a5b2-0000-7000-8000-000000000002', title: 'Call the dentist', done: true },
+      ]),
+    ),
+  )
+  const user = userEvent.setup()
+  renderWithProviders(<TodosPage />)
+
+  expect(await screen.findByRole('checkbox', { name: 'Buy milk' })).not.toBeChecked()
+  expect(screen.queryByText('Call the dentist')).not.toBeInTheDocument()
+
+  await user.click(screen.getByRole('button', { name: /^Done/ }))
+
+  expect(await screen.findByRole('checkbox', { name: 'Call the dentist' })).toBeChecked()
+})
+
+test('checking a todo moves it into Done right away and saves it as done', async () => {
+  const sent: { id: string; done: boolean }[] = []
+  server.use(
+    http.get(todosUrl, () =>
+      HttpResponse.json([
+        { id: '0199a5b2-0000-7000-8000-000000000001', title: 'Buy milk', done: false },
+        { id: '0199a5b2-0000-7000-8000-000000000002', title: 'Call the dentist', done: false },
+      ]),
+    ),
+    // The API never answers, so the todo can only move because the UI moved it optimistically
+    http.put(`${todosUrl}/:id/done`, async ({ params, request }) => {
+      const { done } = (await request.json()) as SetTodoDoneRequest
+      sent.push({ id: params.id as string, done })
+      return delay('infinite')
+    }),
+  )
+  const user = userEvent.setup()
+  renderWithProviders(<TodosPage />)
+
+  await user.click(await screen.findByRole('checkbox', { name: 'Buy milk' }))
+  await user.click(screen.getByRole('button', { name: 'Done (1)' }))
+
+  expect(await screen.findByRole('checkbox', { name: 'Buy milk' })).toBeChecked()
+  await waitFor(() => expect(sent).toEqual([{ id: '0199a5b2-0000-7000-8000-000000000001', done: true }]))
+})
+
+test('un-checking a done todo moves it back out of Done right away and saves it as not done', async () => {
+  const sent: { id: string; done: boolean }[] = []
+  server.use(
+    http.get(todosUrl, () =>
+      HttpResponse.json([
+        { id: '0199a5b2-0000-7000-8000-000000000001', title: 'Buy milk', done: false },
+        { id: '0199a5b2-0000-7000-8000-000000000002', title: 'Call the dentist', done: true },
+      ]),
+    ),
+    http.put(`${todosUrl}/:id/done`, async ({ params, request }) => {
+      const { done } = (await request.json()) as SetTodoDoneRequest
+      sent.push({ id: params.id as string, done })
+      return delay('infinite')
+    }),
+  )
+  const user = userEvent.setup()
+  renderWithProviders(<TodosPage />)
+
+  await user.click(await screen.findByRole('button', { name: 'Done (1)' }))
+  await user.click(await screen.findByRole('checkbox', { name: 'Call the dentist' }))
+
+  expect(screen.getByRole('checkbox', { name: 'Call the dentist' })).not.toBeChecked()
+  // Nothing is done any more, so there's no Done section left for it to be in
+  expect(screen.queryByRole('button', { name: /^Done/ })).not.toBeInTheDocument()
+  await waitFor(() => expect(sent).toEqual([{ id: '0199a5b2-0000-7000-8000-000000000002', done: false }]))
+})
+
+test('a checked todo that fails to save snaps back', async () => {
+  let failTheSave!: () => void
+  const saveFails = new Promise<void>((resolve) => (failTheSave = resolve))
+  server.use(
+    http.get(
+      todosUrl,
+      () => HttpResponse.json([{ id: '0199a5b2-0000-7000-8000-000000000001', title: 'Buy milk', done: false }]),
+      { once: true },
+    ),
+    // Offline, say: the reload after the save fails too, so only the UI can put the todo back
+    http.get(todosUrl, () => HttpResponse.error()),
+    http.put(`${todosUrl}/:id/done`, async () => {
+      await saveFails
+      return HttpResponse.error()
+    }),
+  )
+  const user = userEvent.setup()
+  renderWithProviders(<TodosPage />)
+
+  await user.click(await screen.findByRole('checkbox', { name: 'Buy milk' }))
+  await screen.findByRole('button', { name: 'Done (1)' })
+  failTheSave()
+
+  expect(await screen.findByRole('checkbox', { name: 'Buy milk' })).not.toBeChecked()
+  expect(screen.queryByRole('button', { name: /^Done/ })).not.toBeInTheDocument()
+})
+
+test('after an un-check saves, the todo moves to its place in the list', async () => {
+  const buyMilk = { id: '0199a5b2-0000-7000-8000-000000000001', title: 'Buy milk', done: true }
+  const callTheDentist = { id: '0199a5b2-0000-7000-8000-000000000002', title: 'Call the dentist', done: false }
+  server.use(
+    // In the API's order: not-done todos oldest first, then done ones
+    http.get(todosUrl, () => HttpResponse.json(buyMilk.done ? [callTheDentist, buyMilk] : [buyMilk, callTheDentist])),
+    http.put(`${todosUrl}/:id/done`, () => {
+      buyMilk.done = false
+      return HttpResponse.json(buyMilk)
+    }),
+  )
+  const user = userEvent.setup()
+  renderWithProviders(<TodosPage />)
+
+  await user.click(await screen.findByRole('button', { name: 'Done (1)' }))
+  await user.click(await screen.findByRole('checkbox', { name: 'Buy milk' }))
+
+  // The UI doesn't sort, so it first puts it back at the bottom; the API knows where it goes
+  await waitFor(() =>
+    expect(screen.getAllByRole('listitem').map((item) => item.textContent)).toEqual(['Buy milk', 'Call the dentist']),
+  )
+})
+
+test('a check that saves while a quick-add is still saving keeps the new todo', async () => {
+  const callTheDentist = { id: '0199a5b2-0000-7000-8000-000000000001', title: 'Call the dentist', done: false }
+  server.use(
+    http.get(todosUrl, () => HttpResponse.json([callTheDentist])),
+    // The add never finishes, so a reload would come back without its todo
+    http.post(todosUrl, () => delay('infinite')),
+    http.put(`${todosUrl}/:id/done`, () => {
+      callTheDentist.done = true
+      return HttpResponse.json(callTheDentist)
+    }),
+  )
+  const user = userEvent.setup()
+  renderWithProviders(<TodosPage />)
+  const checkbox = await screen.findByRole('checkbox', { name: 'Call the dentist' })
+
+  await user.type(screen.getByRole('textbox', { name: 'Add a todo' }), 'Buy milk{Enter}')
+  await screen.findByText('Buy milk')
+  await user.click(checkbox)
+
+  // Watches for it going missing at any point, even before this line
+  await expect(
+    waitFor(() => expect(screen.queryByText('Buy milk')).not.toBeInTheDocument(), { timeout: 500 }),
+  ).rejects.toThrow()
+})
+
+test('a quick-add that saves while a check is still saving keeps the todo in Done', async () => {
+  const saved: TodoDto[] = [{ id: '0199a5b2-0000-7000-8000-000000000001', title: 'Call the dentist', done: false }]
+  server.use(
+    http.get(todosUrl, () => HttpResponse.json(saved)),
+    http.post(todosUrl, async ({ request }) => {
+      const { id, title } = (await request.json()) as AddTodoRequest
+      const todo = { id: id!, title, done: false }
+      saved.push(todo)
+      return HttpResponse.json(todo, { status: 201 })
+    }),
+    // The check never finishes, so a reload would come back with the todo not done
+    http.put(`${todosUrl}/:id/done`, () => delay('infinite')),
+  )
+  const user = userEvent.setup()
+  renderWithProviders(<TodosPage />)
+
+  await user.click(await screen.findByRole('checkbox', { name: 'Call the dentist' }))
+  await screen.findByRole('button', { name: 'Done (1)' })
+  await user.type(screen.getByRole('textbox', { name: 'Add a todo' }), 'Buy milk{Enter}')
+
+  // Watches for Done going missing at any point, even before this line
+  await expect(
+    waitFor(() => expect(screen.queryByRole('button', { name: /^Done/ })).not.toBeInTheDocument(), { timeout: 500 }),
+  ).rejects.toThrow()
 })
 
 test('shows a spinner until the todos load', async () => {
@@ -231,9 +405,10 @@ test('after a quick-add saves, the list catches up with the API', async () => {
   server.use(
     http.get(todosUrl, () => HttpResponse.json(saved)),
     http.post(todosUrl, async ({ request }) => {
-      const todo = (await request.json()) as TodoDto
+      const { id, title } = (await request.json()) as AddTodoRequest
+      const todo = { id: id!, title, done: false }
       // Meanwhile another caller (Siri, say) added one too
-      saved.push({ id: '0199a5b2-0000-7000-8000-000000000001', title: 'Call the dentist' }, todo)
+      saved.push({ id: '0199a5b2-0000-7000-8000-000000000001', title: 'Call the dentist', done: false }, todo)
       return HttpResponse.json(todo, { status: 201 })
     }),
   )

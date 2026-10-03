@@ -19,10 +19,10 @@ builder.Services.AddDbContext<JotDbContext>(options => options
 
 builder.Services.AddScoped<TodoOrchestrator>();
 
-// Every error comes back as ProblemDetails: a broken rule is a 400, any other exception a 500 that hides its details,
-// and an error with no body of its own (a wrong URL's 404) gets one
+// Every error comes back as ProblemDetails: a broken rule is a 400, a todo that doesn't exist a 404, any other
+// exception a 500 that hides its details, and an error with no body of its own (a wrong URL's 404) gets one
 builder.Services.AddProblemDetails();
-builder.Services.AddExceptionHandler<BrokenRuleHandler>();
+builder.Services.AddExceptionHandler<OrchestratorErrorHandler>();
 
 // The UI calls the API on its own port (no Vite proxy), so the browser needs CORS to allow its origin
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];

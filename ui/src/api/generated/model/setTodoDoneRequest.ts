@@ -5,8 +5,6 @@
  * OpenAPI spec version: 1.0.0
  */
 
-export interface TodoDto {
-  id: string;
-  title: string;
+export interface SetTodoDoneRequest {
   done: boolean;
 }

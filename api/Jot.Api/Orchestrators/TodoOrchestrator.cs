@@ -20,7 +20,22 @@ public class TodoOrchestrator(JotDbContext db)
         return TodoDto.From(todo);
     }
 
-    // UUID v7 IDs are time-ordered, so ordering by ID lists todos oldest first
+    public async Task<TodoDto> SetDoneAsync(Guid id, bool done, CancellationToken ct)
+    {
+        var todo = await db.Todos.FindAsync([id], ct)
+            ?? throw new NotFoundException("That todo doesn't exist. It may have been deleted.");
+        // Already done keeps its original time, so a retry doesn't move it to the top of Done
+        todo.CompletedAt = done ? todo.CompletedAt ?? DateTime.UtcNow : null;
+        await db.SaveChangesAsync(ct);
+        return TodoDto.From(todo);
+    }
+
+    // Not-done todos first, oldest first (UUID v7 IDs are time-ordered); then done ones, most recently done first
     public async Task<List<TodoDto>> ListAsync(CancellationToken ct) =>
-        await db.Todos.OrderBy(t => t.Id).Select(t => TodoDto.From(t)).ToListAsync(ct);
+        await db.Todos
+            .OrderBy(t => t.CompletedAt != null)
+            .ThenByDescending(t => t.CompletedAt)
+            .ThenBy(t => t.Id)
+            .Select(t => TodoDto.From(t))
+            .ToListAsync(ct);
 }
