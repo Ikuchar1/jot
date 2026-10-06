@@ -1,4 +1,5 @@
-import { Alert, Snackbar, type SnackbarCloseReason } from '@mui/material'
+import Alert from '@mui/material/Alert'
+import Snackbar, { type SnackbarCloseReason } from '@mui/material/Snackbar'
 import { MutationCache, QueryCache, QueryClient, QueryClientProvider, type DefaultOptions } from '@tanstack/react-query'
 import { useEffect, useState, type ReactNode } from 'react'
 

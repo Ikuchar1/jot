@@ -1,4 +1,4 @@
-import { TextField } from '@mui/material'
+import TextField from '@mui/material/TextField'
 import { useState, type FormEvent } from 'react'
 import { useQuickAdd } from './useQuickAdd'
 

@@ -1,4 +1,5 @@
-import { Container, Typography } from '@mui/material'
+import Container from '@mui/material/Container'
+import Typography from '@mui/material/Typography'
 import TodosPage from './todos/TodosPage'
 
 export default function App() {

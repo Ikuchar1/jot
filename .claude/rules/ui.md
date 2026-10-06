@@ -3,10 +3,10 @@ paths:
   - "ui/**"
 ---
 # Working in ui/
-Follow CONVENTIONS.md "UI Rules" (all 9). On top of those:
+Follow CONVENTIONS.md "UI Rules" (all 10). On top of those:
 - `src/api/generated/` is orval output: read it to find hook and type names, never edit it.
 - A feature's mutation wrapper (like `todos/useSetDone.ts`) owns optimistic updates: `onMutate` cancels the list query and patches the cache, `onError` undoes only its own change, `onSettled` calls `resyncTodos`. Copy that shape.
-- For MUI styling (`sx`, `styled()`, theme overrides), use the `material-ui-styling` skill. One exception: import from `@mui/material` like the existing code, not one level deep (`@mui/material/Button`) as the skill suggests.
+- For MUI styling (`sx`, `styled()`, theme overrides), use the `material-ui-styling` skill.
 - Prettier: no semicolons, single quotes, 120 wide. Run `npm run format` rather than formatting by hand.
 - UI text uses the glossary: Todo, List, Done.
 

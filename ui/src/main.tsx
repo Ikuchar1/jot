@@ -1,4 +1,4 @@
-import { CssBaseline } from '@mui/material'
+import CssBaseline from '@mui/material/CssBaseline'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import ApiProvider from './api/ApiProvider.tsx'
