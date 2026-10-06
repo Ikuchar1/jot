@@ -30,6 +30,26 @@ public class TodoOrchestrator(JotDbContext db)
         return TodoDto.From(todo);
     }
 
+    // A soft delete: the row stays, so Undo can bring the todo back with every field it had
+    public async Task DeleteAsync(Guid id, CancellationToken ct)
+    {
+        // Already-deleted todos are found too, so deleting one again (a retry) still succeeds
+        var todo = await db.Todos.IgnoreQueryFilters().FirstOrDefaultAsync(t => t.Id == id, ct)
+            ?? throw new NotFoundException("That todo doesn't exist. It may have been deleted.");
+        todo.DeletedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+    }
+
+    // Undo for a delete: every field the todo had is still on the row, so it comes back as it was
+    public async Task<TodoDto> RestoreAsync(Guid id, CancellationToken ct)
+    {
+        var todo = await db.Todos.IgnoreQueryFilters().FirstOrDefaultAsync(t => t.Id == id, ct)
+            ?? throw new NotFoundException("That todo doesn't exist. It may have been deleted.");
+        todo.DeletedAt = null;
+        await db.SaveChangesAsync(ct);
+        return TodoDto.From(todo);
+    }
+
     // Not-done todos first, oldest first (UUID v7 IDs are time-ordered); then done ones, most recently done first
     public async Task<List<TodoDto>> ListAsync(CancellationToken ct) =>
         await db.Todos
