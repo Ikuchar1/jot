@@ -17,7 +17,14 @@
       "Bash(npm test *)", "Bash(npm run *)", "Bash(npm ci *)", "Bash(npx vitest *)",
       "Bash(./dev.sh *)", "Bash(lsof *)", "Bash(curl -sf -o /dev/null http://localhost:*)",
       "Bash(git rev-parse *)", "Bash(git worktree list *)", "Bash(git branch --show-current *)",
-      "Edit(//var/folders/7c/ryr8w9n56dvc68ylfgds5tg00000gn/T/claude-reviews/**)"
+      "Edit(//var/folders/7c/ryr8w9n56dvc68ylfgds5tg00000gn/T/claude-reviews/**)",
+      "Bash(docker compose exec db dropdb -U jot --force --if-exists jot_1)",
+      "Bash(docker compose exec db dropdb -U jot --force --if-exists jot_2)",
+      "Bash(docker compose exec db dropdb -U jot --force --if-exists jot_3)",
+      "Bash(docker compose exec db dropdb -U jot --force --if-exists jot_4)",
+      "Bash(docker compose exec db dropdb -U jot --force --if-exists jot_5)",
+      "Bash(docker compose exec db dropdb -U jot --force --if-exists jot_6)",
+      "Bash(docker compose exec db dropdb -U jot --force --if-exists jot_7)",
     ]
   }
 }
