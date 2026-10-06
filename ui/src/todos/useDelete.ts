@@ -1,6 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { getListTodosQueryKey, useDeleteTodo } from '../api/generated'
+import { getListTodosQueryKey, getRestoreTodoMutationKey, useDeleteTodo } from '../api/generated'
 import type { TodoDto } from '../api/generated/model'
+import { earlierSavesSettled } from './earlierSaves'
 import { resyncTodos } from './resyncTodos'
 
 export function useDelete() {
@@ -11,14 +12,19 @@ export function useDelete() {
     mutation: {
       // Take the todo off right away, before the API answers
       onMutate: async ({ id }) => {
+        // Deleting it again after an Undo: the delete isn't sent until that restore has saved, or the API could take
+        // the delete first and the restore second, leaving the todo back after the page showed it gone
+        const restoreSaved = earlierSavesSettled(queryClient, getRestoreTodoMutationKey(), id)
         // A list fetch still in flight would put it back when it lands
         await queryClient.cancelQueries({ queryKey: todosKey })
         const todos = queryClient.getQueryData<TodoDto[]>(todosKey) ?? []
         const index = todos.findIndex((todo) => todo.id === id)
         if (index === -1) {
+          await restoreSaved
           return undefined
         }
         queryClient.setQueryData<TodoDto[]>(todosKey, todos.toSpliced(index, 1))
+        await restoreSaved
         // Kept so a failed save can put it back where it was
         return { todo: todos[index], index }
       },

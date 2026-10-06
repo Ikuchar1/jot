@@ -1,12 +1,8 @@
-import { useQueryClient, type QueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { useRef } from 'react'
-import {
-  getDeleteTodoMutationKey,
-  getListTodosQueryKey,
-  useRestoreTodo,
-  type DeleteTodoMutationVariables,
-} from '../api/generated'
+import { getDeleteTodoMutationKey, getListTodosQueryKey, useRestoreTodo } from '../api/generated'
 import type { TodoDto } from '../api/generated/model'
+import { earlierSavesSettled } from './earlierSaves'
 import { resyncTodos } from './resyncTodos'
 
 // Undo for a delete
@@ -20,13 +16,14 @@ export function useRestore() {
     mutation: {
       // Put the todo back in its old place right away, before the API answers
       onMutate: async ({ id }) => {
+        // The restore isn't sent until the delete it undoes has saved. Sent alongside it, the API could take the
+        // restore first and the delete second, leaving the todo deleted after the page showed it coming back.
+        const deleteSaved = earlierSavesSettled(queryClient, getDeleteTodoMutationKey(), id)
         // A list fetch still in flight would take it back out when it lands
         await queryClient.cancelQueries({ queryKey: todosKey })
         const { todo, index } = restoring.current.get(id)!
         queryClient.setQueryData<TodoDto[]>(todosKey, (todos = []) => todos.toSpliced(index, 0, todo))
-        // The restore isn't sent until this resolves. Sent alongside a delete still saving, the API could take the
-        // restore first and the delete second, leaving the todo deleted after the page showed it coming back.
-        await deleteSettled(queryClient, id)
+        await deleteSaved
       },
       // The save failed, so take it back out. Only this one, so other changes still saving stay.
       onError: (_error, { id }) =>
@@ -44,26 +41,4 @@ export function useRestore() {
     restoring.current.set(todo.id, { todo, index })
     mutate({ id: todo.id })
   }
-}
-
-// Resolves once no delete of this todo is still saving
-function deleteSettled(queryClient: QueryClient, id: string) {
-  const mutations = queryClient.getMutationCache()
-  const deleting = () =>
-    mutations
-      .findAll({ mutationKey: getDeleteTodoMutationKey(), status: 'pending' })
-      .some((mutation) => (mutation.state.variables as DeleteTodoMutationVariables).id === id)
-
-  return new Promise<void>((resolve) => {
-    if (!deleting()) {
-      resolve()
-      return
-    }
-    const unsubscribe = mutations.subscribe(() => {
-      if (!deleting()) {
-        unsubscribe()
-        resolve()
-      }
-    })
-  })
 }

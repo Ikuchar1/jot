@@ -422,6 +422,46 @@ test('Undo tapped while the delete is still saving leaves the todo restored', as
   )
 })
 
+test('deleting a todo again after its Undo, while the first delete is still saving, leaves it deleted', async () => {
+  const buyMilk = { id: '0199a5b2-0000-7000-8000-000000000001', title: 'Buy milk', done: false }
+  const callTheDentist = { id: '0199a5b2-0000-7000-8000-000000000002', title: 'Call the dentist', done: false }
+  // A fake API that applies each request when it arrives
+  let deleted = false
+  const applied: string[] = []
+  let firstDelete = true
+  let saveTheFirstDelete!: () => void
+  const firstDeleteSaves = new Promise<void>((resolve) => (saveTheFirstDelete = resolve))
+  server.use(
+    http.get(todosUrl, () => HttpResponse.json(deleted ? [buyMilk] : [buyMilk, callTheDentist])),
+    http.delete(`${todosUrl}/:id`, async () => {
+      if (firstDelete) {
+        firstDelete = false
+        await firstDeleteSaves
+      }
+      deleted = true
+      applied.push('delete')
+      return new HttpResponse(null, { status: 204 })
+    }),
+    http.post(`${todosUrl}/:id/restore`, () => {
+      deleted = false
+      applied.push('restore')
+      return HttpResponse.json(callTheDentist)
+    }),
+  )
+  const user = userEvent.setup()
+  renderWithProviders(<TodosPage />)
+
+  await user.click(await screen.findByRole('button', { name: 'Delete Call the dentist' }))
+  await user.click(screen.getByRole('button', { name: 'Undo' }))
+  await user.click(await screen.findByRole('button', { name: 'Delete Call the dentist' }))
+  saveTheFirstDelete()
+
+  // The API gets them in the order they were tapped, so the last one, the delete, wins
+  await waitFor(() => expect(applied).toEqual(['delete', 'restore', 'delete']), { timeout: 2000 })
+  expect(deleted).toBe(true)
+  await waitFor(() => expect(screen.getAllByRole('listitem').map((item) => item.textContent)).toEqual(['Buy milk']))
+})
+
 test('an Undo that fails to save takes the todo back out', async () => {
   const buyMilk = { id: '0199a5b2-0000-7000-8000-000000000001', title: 'Buy milk', done: false }
   const callTheDentist = { id: '0199a5b2-0000-7000-8000-000000000002', title: 'Call the dentist', done: false }
