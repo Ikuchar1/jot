@@ -1,4 +1,4 @@
-# Conventions - Last Updated October 1st 2026
+# Conventions - Last Updated October 6th 2026
 
 How this repo is laid out and how code in it should be written. It grows as we build: when we settle a pattern or learn something the hard way, add it here.
 
@@ -13,7 +13,11 @@ jot/
 ├── .claude/
 │   ├── agents/
 │   │   └── ui-tester.md ← walks Testing steps in Chrome with playwright-cli and reports pass/fail; never edits
+│   ├── rules/           ← path rules: load when Claude reads or edits a file under that folder
+│   │   ├── api.md       ← api/ rules beyond the API Rules below, where tests go, how to run one test
+│   │   └── ui.md        ← the same for ui/
 │   └── skills/
+│       ├── material-ui-styling/  ← MUI's own skill (MIT): sx vs styled() vs theme; copied from mui/material-ui
 │       └── test-ui/     ← /test-ui: briefs ui-tester with a PR's Testing steps, then presents its report
 ├── .github/
 │   ├── dependabot.yml   ← weekly dependency-update PRs (npm, NuGet, Actions) into staging

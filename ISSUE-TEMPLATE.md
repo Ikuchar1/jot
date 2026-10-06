@@ -44,6 +44,28 @@ Acceptance criteria, Blocked by). Tick an acceptance criterion here once it's do
 
 -
 
+## Plan
+
+<!--
+Written by /drive-issue before any code, then approved by Ian (gate G1). Leave this section out when building by hand.
+-->
+
+- **Interface changes:** <endpoints, DTOs, hooks, components added or changed>
+- **Migration:** yes / no
+- **Behaviors to test**, in build order (API first, then UI):
+  1. API:
+  2. UI:
+- Plan approved <YYYY-MM-DD>, `BASE=<sha>`
+
+## Progress
+
+<!--
+One line per step, newest last, so a restarted or compacted session picks up from the last line.
+e.g. `dev r0: DONE`, `checks: green`, `review r1: 2 Fix`, `Ruling: <question> → <answer, and where it came from>`
+-->
+
+-
+
 ## Local notes
 
 <!--
