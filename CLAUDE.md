@@ -1,4 +1,4 @@
-# Jot — Project Context - Last Updated October 1st 2026
+# Jot — Project Context - Last Updated October 6th 2026
 
 ## Overview
 **Jot** is a personal todo app usable from my phone (installed PWA), my laptop browser, a Chrome new-tab page, Siri, and Claude (MCP). Single user (me) for v1, locked with a secret key; real sign-ups come later.
@@ -13,7 +13,7 @@
 ## Docs
 | File | What's in it | Update when |
 |---|---|---|
-| `CLAUDE.md` | This file — overview, stack, docs map, dev commands, backlog | The stack, current phase, dev commands, or backlog change |
+| `CLAUDE.md` | This file — overview, stack, docs map, dev commands, backlog, the agent `## Workflow` contract | The stack, current phase, dev commands, or backlog change; **CI changes** (keep Workflow's Checks in step with `ci.yml`, same commit) |
 | `CONVENTIONS.md` | File structure, rules, lessons learned | A folder is added, a pattern is settled, or we learn something the hard way |
 | `CONTEXT.md` | Glossary of domain terms — **no implementation details** | A term is added or its meaning changes |
 | `V1-PLAN.md` | Main v1 decisions and the 6 phases | A v1-wide decision changes |
@@ -55,6 +55,8 @@ Run `./dev.sh` and `docker compose` from the repo root, `dotnet` commands from `
 | UI format check | `npm run format:check` (`npm run format` to fix) |
 | Regenerate the API client | `dotnet build` in `api/`, then `npm run generate` in `ui/` |
 | Have Claude click through a PR | `/test-ui <PR number>` in Claude Code — hands the PR's Testing steps to the `ui-tester` agent, which runs them in the background and reports back; needs `npm install -g @playwright/cli@latest` once |
+| Have agents build an issue | From the main folder: `claude -w issue-<N> --permission-mode acceptEdits`, then `/drive-issue <N> <slot>` — plans, builds test-first, reviews and opens the PR; stops for me after the plan and before the push. See Workflow below. Needs claude-setup's `install.sh` once |
+| Clean up after a merged PR | `/close-out` in that issue's session (Parallel Workflow item 8) |
 
 ## Parallel Workflow
 Up to about 3 agents work at once, each on its own issue, and I can run each one's app side by side.
@@ -77,7 +79,7 @@ Up to about 3 agents work at once, each on its own issue, and I can run each one
    - Files under `.claude/worktrees/` get the macOS `hidden` flag, so .NET skips `appsettings*.json` there. `dev.sh` passes the connection string as an env var. Running `dotnet run` / `dotnet ef` by hand in a worktree needs `ConnectionStrings__Jot=Host=localhost;Port=5433;Database=jot_N;Username=jot;Password=jot`.
    - The Git stash is shared by every worktree. Set work aside with a WIP commit, not `git stash`.
    - "Auto mode classifier gave no verdict" on every shell command means Claude Code's safety check is down, not that the command is wrong. Commands matching a `permissions.allow` rule in `.claude/settings.json` skip that check, so routine git and `gh` keep working. Only I edit that file — Claude isn't allowed to grant itself permissions.
-8. **Close out after the PR merges.** When I say the PR merged, the agent that built it:
+8. **Close out after the PR merges.** When I say the PR merged, the agent that built it (`/close-out` does these steps):
    1. Checks with `gh pr view` that the PR is merged and its issue closed.
    2. Deletes the branch on GitHub (`git push origin --delete <branch>`), unless GitHub already did.
    3. Removes its worktree and local branch (exit the worktree with "remove"). If it can't, it gives me `git worktree remove .claude/worktrees/<name>` and `git branch -d <branch>` to run from the main folder.
@@ -113,6 +115,42 @@ Two long-lived branches: **`staging`** (the default branch; everything lands her
 6. **Releasing to prod = a PR from `staging` into `main`** (`gh pr create --base main --head staging`), merged with a **merge commit** once CI is green and I say so. Only `staging` can merge into `main`: the `main` ruleset requires the **From staging** check (`.github/workflows/main-from-staging.yml`), which fails a PR from any other branch. Merge commits are the only method `main` allows: a squash commit would be on `main` but not `staging`, so the next release PR would conflict.
 7. Only commit/push when I ask.
 8. **Never credit Claude or AI anywhere** — no `Co-Authored-By` trailer in commits, no "Generated with Claude Code" line in PRs.
+
+## Workflow
+Read by /drive-issue, developer, reviewer, ui-tester and /close-out. Field names are defined in claude-setup/WORKFLOW.md: change values here, not names.
+
+- **Base branch:** staging
+- **Release branch:** main (PR from staging, merge commit; never by an agent)
+- **Branch names:** feature/<short-desc>, fix/<short-desc>
+- **Issue link:** Closes #N
+- **Issue copy:** ISSUE.md from ISSUE-TEMPLATE.md (gitignored)
+- **PR template:** .github/pull_request_template.md
+- **AI credit:** never
+- **Worktrees:** .claude/worktrees/<name>; never work in the main folder
+- **Setup:**
+  - `npm ci` (in ui/)
+  - `dotnet tool restore` (in api/)
+  - `dotnet restore` (in api/)
+- **Checks:**
+  - `dotnet format --verify-no-changes` (in api/)
+  - `dotnet build -warnaserror -warnNotAsError:NU1901,NU1902,NU1903,NU1904` (in api/)
+  - `dotnet ef migrations has-pending-model-changes --project Jot.Api --no-build` (in api/)
+  - `dotnet test --no-build` (in api/; needs Docker)
+  - `npm run lint` (in ui/)
+  - `npm run format:check` (in ui/)
+  - `npm test` (in ui/)
+  - `npm run build` (in ui/)
+  - `npm run generate` (in ui/), then `git status --porcelain -- ':/api/Jot.Api/Jot.Api.json' ':/ui/src/api/generated'` prints nothing
+- **Tests first:** yes; where tests go is in .claude/rules/api.md and ui.md
+- **Developer skills:** material-ui-styling
+- **Run:** `./dev.sh <slot>`
+- **Slots:** 0 = main folder; N = worktree → API 5080+N, UI 5173+N, DB jot_N
+- **UI test:** `/test-ui` with the folder and slot
+- **DB access:** `docker compose exec db psql -U jot -d jot_<slot>`
+- **Review against:** CLAUDE.md, CONVENTIONS.md, CONTEXT.md, the issue
+- **Gates:** after the plan; before push. Never merge.
+- **Known traps:**
+  - Worktree files have the macOS hidden flag, so appsettings doesn't load. For EF: `migrations remove --force`; `database update --connection "Host=localhost;Port=5433;Database=jot_<slot>;Username=jot;Password=jot"`. Never an env-var prefix, because allow rules can't match it.
 
 ## Conventions
 @CONVENTIONS.md

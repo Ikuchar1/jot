@@ -19,5 +19,19 @@ export default defineConfig([
     languageOptions: {
       globals: globals.browser,
     },
+    rules: {
+      // MUI's own guidance: import each component from its own path, not the package root
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@mui/material',
+              message: "Import one level deep instead: import Button from '@mui/material/Button'",
+            },
+          ],
+        },
+      ],
+    },
   },
 ])
