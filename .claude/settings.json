@@ -8,7 +8,16 @@
       "Bash(git push origin --delete feature/*)", "Bash(git push origin --delete fix/*)",
       "Bash(gh pr view *)", "Bash(gh pr list *)", "Bash(gh pr checks *)",
       "Bash(gh pr create *)", "Bash(gh issue view *)", "Bash(gh issue list *)",
-      "Bash(playwright-cli *)"
+      "Bash(playwright-cli *)",
+      "Bash(dotnet build *)", "Bash(dotnet test *)", "Bash(dotnet format *)",
+      "Bash(dotnet restore *)", "Bash(dotnet tool restore *)",
+      "Bash(dotnet ef migrations add *)", "Bash(dotnet ef migrations list *)",
+      "Bash(dotnet ef migrations has-pending-model-changes *)",
+      "Bash(dotnet ef migrations remove *)", "Bash(dotnet ef database update *)",
+      "Bash(npm test *)", "Bash(npm run *)", "Bash(npm ci *)", "Bash(npx vitest *)",
+      "Bash(./dev.sh *)", "Bash(lsof *)", "Bash(curl -sf -o /dev/null http://localhost:*)",
+      "Bash(git rev-parse *)", "Bash(git worktree list *)", "Bash(git branch --show-current *)",
+      "Edit(//var/folders/7c/ryr8w9n56dvc68ylfgds5tg00000gn/T/claude-reviews/**)"
     ]
   }
 }
