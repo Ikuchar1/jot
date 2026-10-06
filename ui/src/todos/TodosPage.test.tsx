@@ -289,17 +289,26 @@ test('Undo puts the deleted todo back in its place right away, restores it, and 
 test('a done todo deleted from Done goes right away, and Undo puts it back in Done', async () => {
   const deleted: string[] = []
   const restored: string[] = []
+  let saveTheDelete!: () => void
+  const deleteSaves = new Promise<void>((resolve) => (saveTheDelete = resolve))
+  const buyMilk = { id: '0199a5b2-0000-7000-8000-000000000001', title: 'Buy milk', done: false }
   server.use(
-    http.get(todosUrl, () =>
-      HttpResponse.json([
-        { id: '0199a5b2-0000-7000-8000-000000000001', title: 'Buy milk', done: false },
-        { id: '0199a5b2-0000-7000-8000-000000000002', title: 'Call the dentist', done: true },
-      ]),
+    http.get(
+      todosUrl,
+      () =>
+        HttpResponse.json([
+          buyMilk,
+          { id: '0199a5b2-0000-7000-8000-000000000002', title: 'Call the dentist', done: true },
+        ]),
+      { once: true },
     ),
-    // Neither ever answers, so only the UI moves the todo
-    http.delete(`${todosUrl}/:id`, ({ params }) => {
+    // After the delete saves, a reload comes back without it
+    http.get(todosUrl, () => HttpResponse.json([buyMilk])),
+    // The delete answers only once the test lets it, and the restore never does, so only the UI moves the todo
+    http.delete(`${todosUrl}/:id`, async ({ params }) => {
       deleted.push(params.id as string)
-      return delay('infinite')
+      await deleteSaves
+      return new HttpResponse(null, { status: 204 })
     }),
     http.post(`${todosUrl}/:id/restore`, ({ params }) => {
       restored.push(params.id as string)
@@ -315,6 +324,7 @@ test('a done todo deleted from Done goes right away, and Undo puts it back in Do
   expect(screen.queryByText('Call the dentist')).not.toBeInTheDocument()
   expect(screen.queryByRole('button', { name: /^Done/ })).not.toBeInTheDocument()
   await waitFor(() => expect(deleted).toEqual(['0199a5b2-0000-7000-8000-000000000002']))
+  saveTheDelete()
 
   await user.click(screen.getByRole('button', { name: 'Undo' }))
   await user.click(await screen.findByRole('button', { name: 'Done (1)' }))
@@ -369,6 +379,47 @@ test('a delete that fails to save closes its Deleted toast, since there is nothi
   expect(await screen.findByText("Can't reach Jot. Check your connection and try again.")).toBeInTheDocument()
   await waitFor(() => expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument())
   expect(screen.getByText('Buy milk')).toBeInTheDocument()
+})
+
+test('Undo tapped while the delete is still saving leaves the todo restored', async () => {
+  const buyMilk = { id: '0199a5b2-0000-7000-8000-000000000001', title: 'Buy milk', done: false }
+  const callTheDentist = { id: '0199a5b2-0000-7000-8000-000000000002', title: 'Call the dentist', done: false }
+  // A fake API that applies each request when it arrives
+  let deleted = false
+  let applied = 0
+  let reloadsAfterBoth = 0
+  let restoreArrived!: () => void
+  const restoreHasArrived = new Promise<void>((resolve) => (restoreArrived = resolve))
+  server.use(
+    http.get(todosUrl, () => {
+      if (applied === 2) reloadsAfterBoth++
+      return HttpResponse.json(deleted ? [buyMilk] : [buyMilk, callTheDentist])
+    }),
+    // A slow delete: it lands after the restore if the restore is sent without waiting for it
+    http.delete(`${todosUrl}/:id`, async () => {
+      await Promise.race([restoreHasArrived, delay(300)])
+      deleted = true
+      applied++
+      return new HttpResponse(null, { status: 204 })
+    }),
+    http.post(`${todosUrl}/:id/restore`, () => {
+      restoreArrived()
+      deleted = false
+      applied++
+      return HttpResponse.json(callTheDentist)
+    }),
+  )
+  const user = userEvent.setup()
+  renderWithProviders(<TodosPage />)
+
+  await user.click(await screen.findByRole('button', { name: 'Delete Call the dentist' }))
+  await user.click(screen.getByRole('button', { name: 'Undo' }))
+
+  // Once both have saved, the page shows what the API ended up with
+  await waitFor(() => expect(reloadsAfterBoth).toBeGreaterThan(0), { timeout: 2000 })
+  await waitFor(() =>
+    expect(screen.getAllByRole('listitem').map((item) => item.textContent)).toEqual(['Buy milk', 'Call the dentist']),
+  )
 })
 
 test('an Undo that fails to save takes the todo back out', async () => {
