@@ -323,6 +323,37 @@ test('a done todo deleted from Done goes right away, and Undo puts it back in Do
   await waitFor(() => expect(restored).toEqual(['0199a5b2-0000-7000-8000-000000000002']))
 })
 
+test('a delete that fails to save puts back only its own todo, in its place', async () => {
+  let failTheSave!: () => void
+  const saveFails = new Promise<void>((resolve) => (failTheSave = resolve))
+  server.use(
+    http.get(todosUrl, () =>
+      HttpResponse.json([
+        { id: '0199a5b2-0000-7000-8000-000000000001', title: 'Buy milk', done: false },
+        { id: '0199a5b2-0000-7000-8000-000000000002', title: 'Call the dentist', done: false },
+        { id: '0199a5b2-0000-7000-8000-000000000003', title: 'Pay rent', done: false },
+      ]),
+    ),
+    http.delete(`${todosUrl}/:id`, async ({ params }) => {
+      // Pay rent's delete is still saving when Buy milk's fails
+      if (params.id === '0199a5b2-0000-7000-8000-000000000003') return delay('infinite')
+      await saveFails
+      return HttpResponse.error()
+    }),
+  )
+  const user = userEvent.setup()
+  renderWithProviders(<TodosPage />)
+
+  await user.click(await screen.findByRole('button', { name: 'Delete Buy milk' }))
+  await user.click(screen.getByRole('button', { name: 'Delete Pay rent' }))
+  failTheSave()
+
+  expect(await screen.findByText("Can't reach Jot. Check your connection and try again.")).toBeInTheDocument()
+  await waitFor(() =>
+    expect(screen.getAllByRole('listitem').map((item) => item.textContent)).toEqual(['Buy milk', 'Call the dentist']),
+  )
+})
+
 test('shows a spinner until the todos load', async () => {
   server.use(
     http.get(todosUrl, () => HttpResponse.json([{ id: '0199a5b2-0000-7000-8000-000000000001', title: 'Buy milk' }])),

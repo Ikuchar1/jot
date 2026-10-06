@@ -18,9 +18,7 @@ export function useRestore() {
         // A list fetch still in flight would take it back out when it lands
         await queryClient.cancelQueries({ queryKey: todosKey })
         const { todo, index } = restoring.current.get(id)!
-        queryClient.setQueryData<TodoDto[]>(todosKey, (todos) =>
-          todos ? [...todos.slice(0, index), todo, ...todos.slice(index)] : [todo],
-        )
+        queryClient.setQueryData<TodoDto[]>(todosKey, (todos = []) => todos.toSpliced(index, 0, todo))
       },
       // Then re-sync with what the API saved, which also puts it where the API says it goes
       onSettled: (_data, _error, { id }) => {
