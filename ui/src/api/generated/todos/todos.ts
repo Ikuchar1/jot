@@ -310,3 +310,137 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       > => {
       return useMutation(getSetTodoDoneMutationOptions(options), queryClient);
     }
+    export const getDeleteTodoUrl = (id: string,) => {
+
+
+
+
+  return `/api/todos/${id}`
+}
+
+export const deleteTodo = async (id: string, options?: Parameters<typeof jotFetch>[1]): Promise<void> => {
+
+  return jotFetch<void>(getDeleteTodoUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteTodoMutationKey = () => ['deleteTodo'] as const;
+
+export const getDeleteTodoMutationOptions = <TError = ErrorType<ProblemDetails>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteTodo>>, TError,DeleteTodoMutationVariables, TContext>, request?: SecondParameter<typeof jotFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteTodo>>, TError,DeleteTodoMutationVariables, TContext> => {
+
+const mutationKey = getDeleteTodoMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteTodo>>, DeleteTodoMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteTodo(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteTodoMutationResult = NonNullable<Awaited<ReturnType<typeof deleteTodo>>>
+
+    export type DeleteTodoMutationError = ErrorType<ProblemDetails>
+    export type DeleteTodoMutationVariables = {id: string}
+
+    export const useDeleteTodo = <TError = ErrorType<ProblemDetails>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteTodo>>, TError,DeleteTodoMutationVariables, TContext>, request?: SecondParameter<typeof jotFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof deleteTodo>>,
+        TError,
+        DeleteTodoMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeleteTodoMutationOptions(options), queryClient);
+    }
+    export const getRestoreTodoUrl = (id: string,) => {
+
+
+
+
+  return `/api/todos/${id}/restore`
+}
+
+export const restoreTodo = async (id: string, options?: Parameters<typeof jotFetch>[1]): Promise<TodoDto> => {
+
+  return jotFetch<TodoDto>(getRestoreTodoUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRestoreTodoMutationKey = () => ['restoreTodo'] as const;
+
+export const getRestoreTodoMutationOptions = <TError = ErrorType<ProblemDetails>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof restoreTodo>>, TError,RestoreTodoMutationVariables, TContext>, request?: SecondParameter<typeof jotFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof restoreTodo>>, TError,RestoreTodoMutationVariables, TContext> => {
+
+const mutationKey = getRestoreTodoMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof restoreTodo>>, RestoreTodoMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  restoreTodo(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RestoreTodoMutationResult = NonNullable<Awaited<ReturnType<typeof restoreTodo>>>
+
+    export type RestoreTodoMutationError = ErrorType<ProblemDetails>
+    export type RestoreTodoMutationVariables = {id: string}
+
+    export const useRestoreTodo = <TError = ErrorType<ProblemDetails>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof restoreTodo>>, TError,RestoreTodoMutationVariables, TContext>, request?: SecondParameter<typeof jotFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof restoreTodo>>,
+        TError,
+        RestoreTodoMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRestoreTodoMutationOptions(options), queryClient);
+    }

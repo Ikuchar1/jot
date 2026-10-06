@@ -172,6 +172,47 @@ public class TodosTests(JotApiFactory api)
         Assert.Equal([second, first], order);
     }
 
+    [Fact]
+    public async Task Deleting_a_todo_that_does_not_exist_is_a_404_problem_details()
+    {
+        var ct = TestContext.Current.CancellationToken;
+
+        var response = await _client.DeleteAsync($"/api/todos/{Guid.CreateVersion7()}", ct);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemJson>(ct);
+        Assert.Equal(new ProblemJson(404, "Not Found", "That todo doesn't exist. It may have been deleted."), problem);
+    }
+
+    // A retry re-sends the same request, and shouldn't fail because the first one already worked
+    [Fact]
+    public async Task Deleting_a_todo_twice_is_a_204_both_times()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var id = Guid.CreateVersion7();
+        await _client.PostAsJsonAsync("/api/todos", new { id, title = "Cancel the gym" }, ct);
+
+        var first = await _client.DeleteAsync($"/api/todos/{id}", ct);
+        var second = await _client.DeleteAsync($"/api/todos/{id}", ct);
+
+        Assert.Equal(HttpStatusCode.NoContent, first.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, second.StatusCode);
+    }
+
+    [Fact]
+    public async Task Restoring_a_todo_that_does_not_exist_is_a_404_problem_details()
+    {
+        var ct = TestContext.Current.CancellationToken;
+
+        var response = await _client.PostAsync($"/api/todos/{Guid.CreateVersion7()}/restore", null, ct);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemJson>(ct);
+        Assert.Equal(new ProblemJson(404, "Not Found", "That todo doesn't exist. It may have been deleted."), problem);
+    }
+
     // The JSON the UI sees, kept apart from the API's DTO so a breaking change to the contract fails here
     private sealed record TodoJson(Guid Id, string Title, bool Done);
 }
