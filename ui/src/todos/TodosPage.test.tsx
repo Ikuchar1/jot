@@ -286,6 +286,43 @@ test('Undo puts the deleted todo back in its place right away, restores it, and 
   await waitFor(() => expect(screen.queryByText('Deleted')).not.toBeInTheDocument())
 })
 
+test('a done todo deleted from Done goes right away, and Undo puts it back in Done', async () => {
+  const deleted: string[] = []
+  const restored: string[] = []
+  server.use(
+    http.get(todosUrl, () =>
+      HttpResponse.json([
+        { id: '0199a5b2-0000-7000-8000-000000000001', title: 'Buy milk', done: false },
+        { id: '0199a5b2-0000-7000-8000-000000000002', title: 'Call the dentist', done: true },
+      ]),
+    ),
+    // Neither ever answers, so only the UI moves the todo
+    http.delete(`${todosUrl}/:id`, ({ params }) => {
+      deleted.push(params.id as string)
+      return delay('infinite')
+    }),
+    http.post(`${todosUrl}/:id/restore`, ({ params }) => {
+      restored.push(params.id as string)
+      return delay('infinite')
+    }),
+  )
+  const user = userEvent.setup()
+  renderWithProviders(<TodosPage />)
+
+  await user.click(await screen.findByRole('button', { name: 'Done (1)' }))
+  await user.click(await screen.findByRole('button', { name: 'Delete Call the dentist' }))
+
+  expect(screen.queryByText('Call the dentist')).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: /^Done/ })).not.toBeInTheDocument()
+  await waitFor(() => expect(deleted).toEqual(['0199a5b2-0000-7000-8000-000000000002']))
+
+  await user.click(screen.getByRole('button', { name: 'Undo' }))
+  await user.click(await screen.findByRole('button', { name: 'Done (1)' }))
+
+  expect(await screen.findByRole('checkbox', { name: 'Call the dentist' })).toBeChecked()
+  await waitFor(() => expect(restored).toEqual(['0199a5b2-0000-7000-8000-000000000002']))
+})
+
 test('shows a spinner until the todos load', async () => {
   server.use(
     http.get(todosUrl, () => HttpResponse.json([{ id: '0199a5b2-0000-7000-8000-000000000001', title: 'Buy milk' }])),
