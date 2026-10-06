@@ -55,7 +55,7 @@ ui/
     │   ├── ApiProvider.tsx  ← the QueryClient, and the toast that shows any failed call
     │   ├── fetcher.ts   ← jotFetch: the one place that calls fetch; turns errors into readable messages
     │   └── generated/   ← orval output — committed, never edited by hand
-    ├── todos/           ← the Todos page (with its Done section), quick-add, checking a todo, and their tests
+    ├── todos/           ← the Todos page (with its Done section), quick-add, checking, deleting and restoring (Undo) a todo, and their tests
     └── test/            ← Vitest setup, MSW server, renderWithProviders
 ```
 Keep these trees current: add a line when a folder or important file is created, and drop "(planned)" once it exists.
