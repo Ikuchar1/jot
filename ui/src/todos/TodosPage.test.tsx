@@ -1,14 +1,18 @@
-import { screen, waitFor, waitForElementToBeRemoved } from '@testing-library/react'
+import { act, screen, waitFor, waitForElementToBeRemoved } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { delay, http, HttpResponse } from 'msw'
 import { version } from 'uuid'
-import { expect, test } from 'vitest'
+import { afterEach, expect, test, vi } from 'vitest'
 import type { AddTodoRequest, SetTodoDoneRequest, TodoDto } from '../api/generated/model'
 import { renderWithProviders } from '../test/render'
 import { server } from '../test/server'
 import TodosPage from './TodosPage'
 
 const todosUrl = 'http://api.test/api/todos'
+
+afterEach(() => {
+  vi.useRealTimers()
+})
 
 test('shows the saved todos', async () => {
   server.use(
@@ -223,6 +227,29 @@ test('deleting a todo takes it off the page right away and deletes it', async ()
   expect(screen.queryByText('Buy milk')).not.toBeInTheDocument()
   expect(screen.getByText('Call the dentist')).toBeInTheDocument()
   await waitFor(() => expect(deleted).toEqual(['0199a5b2-0000-7000-8000-000000000001']))
+})
+
+test('deleting a todo shows a Deleted toast with Undo that closes after about 5 seconds', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true })
+  server.use(
+    http.get(todosUrl, () =>
+      HttpResponse.json([{ id: '0199a5b2-0000-7000-8000-000000000001', title: 'Buy milk', done: false }]),
+    ),
+    http.delete(`${todosUrl}/:id`, () => new HttpResponse(null, { status: 204 })),
+  )
+  const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+  renderWithProviders(<TodosPage />)
+
+  await user.click(await screen.findByRole('button', { name: 'Delete Buy milk' }))
+
+  expect(await screen.findByText('Deleted')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Undo' })).toBeInTheDocument()
+  await act(() => vi.advanceTimersByTimeAsync(4_500))
+  expect(screen.getByText('Deleted')).toBeInTheDocument()
+  // Past 5 seconds, and its animation out
+  await act(() => vi.advanceTimersByTimeAsync(1_000))
+  await act(() => vi.advanceTimersByTimeAsync(1_000))
+  expect(screen.queryByText('Deleted')).not.toBeInTheDocument()
 })
 
 test('shows a spinner until the todos load', async () => {

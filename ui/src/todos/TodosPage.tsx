@@ -6,6 +6,8 @@ import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import CircularProgress from '@mui/material/CircularProgress'
 import List from '@mui/material/List'
+import Snackbar, { type SnackbarCloseReason } from '@mui/material/Snackbar'
+import { useState } from 'react'
 import { useListTodos } from '../api/generated'
 import type { TodoDto } from '../api/generated/model'
 import QuickAdd from './QuickAdd'
@@ -15,13 +17,29 @@ import { useDelete } from './useDelete'
 export default function TodosPage() {
   const { data: todos, isError, isFetching, refetch } = useListTodos()
   const deleteTodo = useDelete()
+  // The last todo deleted, which Undo brings back. Kept apart from open so it's still there while the toast animates out
+  const [deleted, setDeleted] = useState<TodoDto | null>(null)
+  const [toastOpen, setToastOpen] = useState(false)
+
+  function handleDelete(todo: TodoDto) {
+    deleteTodo(todo.id)
+    setDeleted(todo)
+    setToastOpen(true)
+  }
+
+  // Not on a click elsewhere: deleting another todo replaces the toast anyway
+  function handleToastClose(_event: unknown, reason?: SnackbarCloseReason) {
+    if (reason !== 'clickaway') {
+      setToastOpen(false)
+    }
+  }
 
   return (
     <>
       <QuickAdd />
       {/* Todos that loaded stay even if a later reload fails; the toast says why */}
       {todos && (todos.length > 0 || !isError) ? (
-        <TodoSections todos={todos} onDelete={(todo) => deleteTodo(todo.id)} />
+        <TodoSections todos={todos} onDelete={handleDelete} />
       ) : (
         // Otherwise a spinner while it's trying (retries included), so an API that can't be reached doesn't look like
         // an empty list, and once it gives up, a way to try again
@@ -33,6 +51,15 @@ export default function TodosPage() {
           )}
         </Box>
       )}
+      {/* Keyed by the todo, so a second delete replaces the first's toast and starts its 5 seconds over */}
+      <Snackbar
+        key={deleted?.id}
+        open={toastOpen}
+        autoHideDuration={5000}
+        onClose={handleToastClose}
+        message="Deleted"
+        action={<Button color="inherit">Undo</Button>}
+      />
     </>
   )
 }
