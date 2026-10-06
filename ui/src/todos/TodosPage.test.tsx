@@ -354,6 +354,35 @@ test('a delete that fails to save puts back only its own todo, in its place', as
   )
 })
 
+test('an Undo that fails to save takes the todo back out', async () => {
+  const buyMilk = { id: '0199a5b2-0000-7000-8000-000000000001', title: 'Buy milk', done: false }
+  const callTheDentist = { id: '0199a5b2-0000-7000-8000-000000000002', title: 'Call the dentist', done: false }
+  let failTheSave!: () => void
+  const saveFails = new Promise<void>((resolve) => (failTheSave = resolve))
+  server.use(
+    http.get(todosUrl, () => HttpResponse.json([buyMilk, callTheDentist]), { once: true }),
+    http.get(todosUrl, () => HttpResponse.json([buyMilk]), { once: true }),
+    // Offline, say: the reload after the Undo fails too, so only the UI can take the todo back out
+    http.get(todosUrl, () => HttpResponse.error()),
+    http.delete(`${todosUrl}/:id`, () => new HttpResponse(null, { status: 204 })),
+    http.post(`${todosUrl}/:id/restore`, async () => {
+      await saveFails
+      return HttpResponse.error()
+    }),
+  )
+  const user = userEvent.setup()
+  renderWithProviders(<TodosPage />)
+
+  await user.click(await screen.findByRole('button', { name: 'Delete Call the dentist' }))
+  await waitFor(() => expect(screen.getAllByRole('listitem').map((item) => item.textContent)).toEqual(['Buy milk']))
+  await user.click(screen.getByRole('button', { name: 'Undo' }))
+  const todo = await screen.findByText('Call the dentist')
+  failTheSave()
+
+  await waitForElementToBeRemoved(todo)
+  expect(screen.getByText('Buy milk')).toBeInTheDocument()
+})
+
 test('shows a spinner until the todos load', async () => {
   server.use(
     http.get(todosUrl, () => HttpResponse.json([{ id: '0199a5b2-0000-7000-8000-000000000001', title: 'Buy milk' }])),

@@ -20,6 +20,9 @@ export function useRestore() {
         const { todo, index } = restoring.current.get(id)!
         queryClient.setQueryData<TodoDto[]>(todosKey, (todos = []) => todos.toSpliced(index, 0, todo))
       },
+      // The save failed, so take it back out. Only this one, so other changes still saving stay.
+      onError: (_error, { id }) =>
+        queryClient.setQueryData<TodoDto[]>(todosKey, (todos) => todos?.filter((todo) => todo.id !== id)),
       // Then re-sync with what the API saved, which also puts it where the API says it goes
       onSettled: (_data, _error, { id }) => {
         restoring.current.delete(id)
