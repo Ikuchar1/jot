@@ -55,13 +55,13 @@ Run `./dev.sh` and `docker compose` from the repo root, `dotnet` commands from `
 | UI format check | `npm run format:check` (`npm run format` to fix) |
 | Regenerate the API client | `dotnet build` in `api/`, then `npm run generate` in `ui/` |
 | Have Claude click through a PR | `/test-ui <PR number>` in Claude Code — hands the PR's Testing steps to the `ui-tester` agent, which runs them in the background and reports back; needs `npm install -g @playwright/cli@latest` once |
-| Have agents build an issue | From the main folder: `claude -w issue-<N> --permission-mode acceptEdits`, then `/drive-issue <N> <slot>` — plans, builds test-first, reviews and opens the PR; stops for me after the plan and before the push. See Workflow below. Needs claude-setup's `install.sh` once |
+| Have agents build an issue | Start `claude` in the main folder, spawn a new session, then `/drive-issue start on issue <N>` (add `slot <S>` to pick one; otherwise it takes a free slot) — plans, builds test-first, reviews and opens the PR; stops for me after the plan and before the push. See Workflow below. Needs claude-setup's `install.sh` once |
 | Clean up after a merged PR | `/close-out` in that issue's session (Parallel Workflow item 8) |
 
 ## Parallel Workflow
 Up to about 3 agents work at once, each on its own issue, and I can run each one's app side by side.
 
-1. **One agent = one worktree = one branch = one issue.** A worktree is an extra working folder that shares this repo's Git history. Start an agent in one with `claude -w <name>`; background sessions create their own. They live in `.claude/worktrees/<name>/`.
+1. **One agent = one worktree = one branch = one issue.** A worktree is an extra working folder that shares this repo's Git history. Sessions spawned from `claude` in the main folder create their own (or start one by hand with `claude -w <name>`). They live in `.claude/worktrees/<name>/`.
    - **Copy the issue into `ISSUE.md` when starting it** — at the worktree root, following `ISSUE-TEMPLATE.md`: the issue's contents and status, under a note that the file never merges. It's gitignored, so it can't be committed; GitHub stays the source of truth, so re-copy it if the issue changes.
 2. **The main `jot/` folder is mine.** Agents never work in it. I keep it on `staging`, or check out an agent's branch there to try it.
 3. **Branches follow the Git Workflow below** (`feature/…` / `fix/…` off `staging`). If an issue needs an unmerged branch, branch off that one and say so in the PR. New worktrees start from GitHub's default branch, `staging`, so push `staging` before starting agents that need recent commits.
