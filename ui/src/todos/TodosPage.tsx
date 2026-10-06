@@ -10,16 +10,18 @@ import { useListTodos } from '../api/generated'
 import type { TodoDto } from '../api/generated/model'
 import QuickAdd from './QuickAdd'
 import TodoItem from './TodoItem'
+import { useDelete } from './useDelete'
 
 export default function TodosPage() {
   const { data: todos, isError, isFetching, refetch } = useListTodos()
+  const deleteTodo = useDelete()
 
   return (
     <>
       <QuickAdd />
       {/* Todos that loaded stay even if a later reload fails; the toast says why */}
       {todos && (todos.length > 0 || !isError) ? (
-        <TodoSections todos={todos} />
+        <TodoSections todos={todos} onDelete={(todo) => deleteTodo(todo.id)} />
       ) : (
         // Otherwise a spinner while it's trying (retries included), so an API that can't be reached doesn't look like
         // an empty list, and once it gives up, a way to try again
@@ -36,7 +38,7 @@ export default function TodosPage() {
 }
 
 // The API sends the todos in order, done ones last, so this only splits them; it doesn't sort
-function TodoSections({ todos }: { todos: TodoDto[] }) {
+function TodoSections({ todos, onDelete }: { todos: TodoDto[]; onDelete: (todo: TodoDto) => void }) {
   const notDone = todos.filter((todo) => !todo.done)
   const done = todos.filter((todo) => todo.done)
 
@@ -44,7 +46,7 @@ function TodoSections({ todos }: { todos: TodoDto[] }) {
     <>
       <List>
         {notDone.map((todo) => (
-          <TodoItem key={todo.id} todo={todo} />
+          <TodoItem key={todo.id} todo={todo} onDelete={onDelete} />
         ))}
       </List>
       {done.length > 0 && (
@@ -54,7 +56,7 @@ function TodoSections({ todos }: { todos: TodoDto[] }) {
           <AccordionDetails sx={{ p: 0 }}>
             <List>
               {done.map((todo) => (
-                <TodoItem key={todo.id} todo={todo} />
+                <TodoItem key={todo.id} todo={todo} onDelete={onDelete} />
               ))}
             </List>
           </AccordionDetails>

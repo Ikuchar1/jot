@@ -200,6 +200,31 @@ test('a quick-add that saves while a check is still saving keeps the todo in Don
   ).rejects.toThrow()
 })
 
+test('deleting a todo takes it off the page right away and deletes it', async () => {
+  const deleted: string[] = []
+  server.use(
+    http.get(todosUrl, () =>
+      HttpResponse.json([
+        { id: '0199a5b2-0000-7000-8000-000000000001', title: 'Buy milk', done: false },
+        { id: '0199a5b2-0000-7000-8000-000000000002', title: 'Call the dentist', done: false },
+      ]),
+    ),
+    // The API never answers, so the todo can only go because the UI took it off optimistically
+    http.delete(`${todosUrl}/:id`, ({ params }) => {
+      deleted.push(params.id as string)
+      return delay('infinite')
+    }),
+  )
+  const user = userEvent.setup()
+  renderWithProviders(<TodosPage />)
+
+  await user.click(await screen.findByRole('button', { name: 'Delete Buy milk' }))
+
+  expect(screen.queryByText('Buy milk')).not.toBeInTheDocument()
+  expect(screen.getByText('Call the dentist')).toBeInTheDocument()
+  await waitFor(() => expect(deleted).toEqual(['0199a5b2-0000-7000-8000-000000000001']))
+})
+
 test('shows a spinner until the todos load', async () => {
   server.use(
     http.get(todosUrl, () => HttpResponse.json([{ id: '0199a5b2-0000-7000-8000-000000000001', title: 'Buy milk' }])),
