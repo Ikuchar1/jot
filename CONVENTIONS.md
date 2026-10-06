@@ -1,4 +1,4 @@
-# Conventions - Last Updated October 1st 2026
+# Conventions - Last Updated October 6th 2026
 
 How this repo is laid out and how code in it should be written. It grows as we build: when we settle a pattern or learn something the hard way, add it here.
 
@@ -13,7 +13,11 @@ jot/
 ├── .claude/
 │   ├── agents/
 │   │   └── ui-tester.md ← walks Testing steps in Chrome with playwright-cli and reports pass/fail; never edits
+│   ├── rules/           ← path rules: load when Claude reads or edits a file under that folder
+│   │   ├── api.md       ← api/ rules beyond the API Rules below, where tests go, how to run one test
+│   │   └── ui.md        ← the same for ui/
 │   └── skills/
+│       ├── material-ui-styling/  ← MUI's own skill (MIT): sx vs styled() vs theme; copied from mui/material-ui
 │       └── test-ui/     ← /test-ui: briefs ui-tester with a PR's Testing steps, then presents its report
 ├── .github/
 │   ├── dependabot.yml   ← weekly dependency-update PRs (npm, NuGet, Actions) into staging
@@ -79,6 +83,7 @@ Keep these trees current: add a line when a folder or important file is created,
 7. **UI tests fake the API with MSW, not by mocking hooks or `fetch`** — so the real generated hooks and `jotFetch` run. A request with no handler fails the test.
 8. **Failed API calls show in the toast on their own** — `ApiProvider` catches every query and mutation error. Components don't show their own error messages; a hook's `onError` is only for undoing its own work (like taking an optimistic todo back out). A failed save's toast closes after 6 seconds; a failed load's stays until that load runs again or it's closed with its ×, since nothing else on the page says why the data is missing.
 9. **An optimistic change to the todos undoes only itself, then calls `resyncTodos`** — `onError` reverts just that todo, never a snapshot from before it (that would undo other changes still saving), and `onSettled` calls `resyncTodos`, which reloads the list only once nothing else is saving.
+10. **Import MUI components one level deep** — `import Button from '@mui/material/Button'`, not `import { Button } from '@mui/material'`, as MUI's own guidance (the `material-ui-styling` skill) says. ESLint fails the barrel import.
 
 ## Lessons Learned
 Carried over from other projects, and added to as we go.

@@ -1,4 +1,7 @@
-import { Checkbox, ListItem, ListItemIcon, ListItemText } from '@mui/material'
+import Checkbox from '@mui/material/Checkbox'
+import ListItem from '@mui/material/ListItem'
+import ListItemIcon from '@mui/material/ListItemIcon'
+import ListItemText from '@mui/material/ListItemText'
 import { useId } from 'react'
 import type { TodoDto } from '../api/generated/model'
 import { useSetDone } from './useSetDone'
