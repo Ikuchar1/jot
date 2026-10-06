@@ -13,18 +13,26 @@ import type { TodoDto } from '../api/generated/model'
 import QuickAdd from './QuickAdd'
 import TodoItem from './TodoItem'
 import { useDelete } from './useDelete'
+import { useRestore } from './useRestore'
 
 export default function TodosPage() {
   const { data: todos, isError, isFetching, refetch } = useListTodos()
   const deleteTodo = useDelete()
-  // The last todo deleted, which Undo brings back. Kept apart from open so it's still there while the toast animates out
-  const [deleted, setDeleted] = useState<TodoDto | null>(null)
+  const restore = useRestore()
+  // The last todo deleted and where it was, which Undo puts back. Kept apart from open so it's still there while the
+  // toast animates out
+  const [deleted, setDeleted] = useState<{ todo: TodoDto; index: number } | null>(null)
   const [toastOpen, setToastOpen] = useState(false)
 
   function handleDelete(todo: TodoDto) {
+    setDeleted({ todo, index: todos!.findIndex((t) => t.id === todo.id) })
     deleteTodo(todo.id)
-    setDeleted(todo)
     setToastOpen(true)
+  }
+
+  function handleUndo() {
+    restore(deleted!.todo, deleted!.index)
+    setToastOpen(false)
   }
 
   // Not on a click elsewhere: deleting another todo replaces the toast anyway
@@ -53,12 +61,16 @@ export default function TodosPage() {
       )}
       {/* Keyed by the todo, so a second delete replaces the first's toast and starts its 5 seconds over */}
       <Snackbar
-        key={deleted?.id}
+        key={deleted?.todo.id}
         open={toastOpen}
         autoHideDuration={5000}
         onClose={handleToastClose}
         message="Deleted"
-        action={<Button color="inherit">Undo</Button>}
+        action={
+          <Button color="inherit" onClick={handleUndo}>
+            Undo
+          </Button>
+        }
       />
     </>
   )

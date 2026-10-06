@@ -252,6 +252,40 @@ test('deleting a todo shows a Deleted toast with Undo that closes after about 5 
   expect(screen.queryByText('Deleted')).not.toBeInTheDocument()
 })
 
+test('Undo puts the deleted todo back in its place right away, restores it, and closes the toast', async () => {
+  const buyMilk = { id: '0199a5b2-0000-7000-8000-000000000001', title: 'Buy milk', done: false }
+  const callTheDentist = { id: '0199a5b2-0000-7000-8000-000000000002', title: 'Call the dentist', done: false }
+  const payRent = { id: '0199a5b2-0000-7000-8000-000000000003', title: 'Pay rent', done: false }
+  const restored: string[] = []
+  server.use(
+    http.get(todosUrl, () => HttpResponse.json([buyMilk, callTheDentist, payRent]), { once: true }),
+    // After the delete saves, the reload comes back without it
+    http.get(todosUrl, () => HttpResponse.json([buyMilk, payRent])),
+    http.delete(`${todosUrl}/:id`, () => new HttpResponse(null, { status: 204 })),
+    // The API never answers, so the todo can only come back because the UI put it back optimistically
+    http.post(`${todosUrl}/:id/restore`, ({ params }) => {
+      restored.push(params.id as string)
+      return delay('infinite')
+    }),
+  )
+  const user = userEvent.setup()
+  renderWithProviders(<TodosPage />)
+
+  await user.click(await screen.findByRole('button', { name: 'Delete Call the dentist' }))
+  await waitFor(() =>
+    expect(screen.getAllByRole('listitem').map((item) => item.textContent)).toEqual(['Buy milk', 'Pay rent']),
+  )
+  await user.click(screen.getByRole('button', { name: 'Undo' }))
+
+  expect(screen.getAllByRole('listitem').map((item) => item.textContent)).toEqual([
+    'Buy milk',
+    'Call the dentist',
+    'Pay rent',
+  ])
+  await waitFor(() => expect(restored).toEqual(['0199a5b2-0000-7000-8000-000000000002']))
+  await waitFor(() => expect(screen.queryByText('Deleted')).not.toBeInTheDocument())
+})
+
 test('shows a spinner until the todos load', async () => {
   server.use(
     http.get(todosUrl, () => HttpResponse.json([{ id: '0199a5b2-0000-7000-8000-000000000001', title: 'Buy milk' }])),
