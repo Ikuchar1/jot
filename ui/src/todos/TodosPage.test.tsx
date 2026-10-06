@@ -381,6 +381,40 @@ test('a delete that fails to save closes its Deleted toast, since there is nothi
   expect(screen.getByText('Buy milk')).toBeInTheDocument()
 })
 
+test('a delete that fails after its Undo was tapped shows the todo once', async () => {
+  const buyMilk = { id: '0199a5b2-0000-7000-8000-000000000001', title: 'Buy milk', done: false }
+  const callTheDentist = { id: '0199a5b2-0000-7000-8000-000000000002', title: 'Call the dentist', done: false }
+  let failTheDelete!: () => void
+  const deleteFails = new Promise<void>((resolve) => (failTheDelete = resolve))
+  // The restore stays saving, so no reload can tidy the list up and only the UI decides what shows
+  let saveTheRestore!: () => void
+  const restoreSaves = new Promise<void>((resolve) => (saveTheRestore = resolve))
+  server.use(
+    http.get(todosUrl, () => HttpResponse.json([buyMilk, callTheDentist])),
+    http.delete(`${todosUrl}/:id`, async () => {
+      await deleteFails
+      return HttpResponse.error()
+    }),
+    http.post(`${todosUrl}/:id/restore`, async () => {
+      await restoreSaves
+      return HttpResponse.json(callTheDentist)
+    }),
+  )
+  const consoleError = vi.spyOn(console, 'error')
+  const user = userEvent.setup()
+  renderWithProviders(<TodosPage />)
+
+  await user.click(await screen.findByRole('button', { name: 'Delete Call the dentist' }))
+  await user.click(screen.getByRole('button', { name: 'Undo' }))
+  failTheDelete()
+
+  expect(await screen.findByText("Can't reach Jot. Check your connection and try again.")).toBeInTheDocument()
+  expect(consoleError.mock.calls.flat().join(' ')).not.toContain('same key')
+  expect(screen.getAllByRole('listitem').map((item) => item.textContent)).toEqual(['Buy milk', 'Call the dentist'])
+  consoleError.mockRestore()
+  saveTheRestore()
+})
+
 test('Undo tapped while the delete is still saving leaves the todo restored', async () => {
   const buyMilk = { id: '0199a5b2-0000-7000-8000-000000000001', title: 'Buy milk', done: false }
   const callTheDentist = { id: '0199a5b2-0000-7000-8000-000000000002', title: 'Call the dentist', done: false }

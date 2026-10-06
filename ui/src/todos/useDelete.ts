@@ -30,9 +30,14 @@ export function useDelete() {
       },
       // The save failed, so put it back. Only this one: restoring a snapshot from before the delete would also undo
       // other changes made since then that are still saving.
+      // An Undo tapped while it was saving has already put it back, so then it stays as it is.
       onError: (_error, _variables, deleted) => {
         if (deleted) {
-          queryClient.setQueryData<TodoDto[]>(todosKey, (todos) => todos?.toSpliced(deleted.index, 0, deleted.todo))
+          queryClient.setQueryData<TodoDto[]>(todosKey, (todos) =>
+            todos?.some((todo) => todo.id === deleted.todo.id)
+              ? todos
+              : todos?.toSpliced(deleted.index, 0, deleted.todo),
+          )
         }
       },
       onSettled: () => resyncTodos(queryClient),
