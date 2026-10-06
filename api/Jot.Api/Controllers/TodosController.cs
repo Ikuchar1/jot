@@ -28,4 +28,13 @@ public class TodosController(TodoOrchestrator todos) : ControllerBase
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
     public Task<TodoDto> SetTodoDone(Guid id, SetTodoDoneRequest request, CancellationToken ct) =>
         todos.SetDoneAsync(id, request.Done, ct);
+
+    // Deleting an already-deleted todo is still a 204, so a retry is safe
+    [HttpDelete("{id:guid}", Name = "DeleteTodo")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> DeleteTodo(Guid id, CancellationToken ct)
+    {
+        await todos.DeleteAsync(id, ct);
+        return NoContent();
+    }
 }

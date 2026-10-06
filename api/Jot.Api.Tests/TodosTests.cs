@@ -134,6 +134,20 @@ public class TodosTests(JotApiFactory api)
         Assert.Equal(new ProblemJson(404, "Not Found", "That todo doesn't exist. It may have been deleted."), problem);
     }
 
+    [Fact]
+    public async Task Deleted_todo_no_longer_shows_in_the_list()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var id = Guid.CreateVersion7();
+        await _client.PostAsJsonAsync("/api/todos", new { id, title = "Return the library book" }, ct);
+
+        var response = await _client.DeleteAsync($"/api/todos/{id}", ct);
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+
+        var todos = await _client.GetFromJsonAsync<List<TodoJson>>("/api/todos", ct);
+        Assert.DoesNotContain(todos!, t => t.Id == id);
+    }
+
     // The JSON the UI sees, kept apart from the API's DTO so a breaking change to the contract fails here
     private sealed record TodoJson(Guid Id, string Title, bool Done);
 }
