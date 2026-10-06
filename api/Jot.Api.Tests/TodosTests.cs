@@ -148,6 +148,30 @@ public class TodosTests(JotApiFactory api)
         Assert.DoesNotContain(todos!, t => t.Id == id);
     }
 
+    // Undo: the todo comes back as it was, so a done one keeps its place in Done
+    [Fact]
+    public async Task Restored_todo_comes_back_with_the_same_id_title_and_done_state_in_its_old_place()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (first, second) = (Guid.CreateVersion7(), Guid.CreateVersion7());
+        foreach (var id in new[] { first, second })
+        {
+            await _client.PostAsJsonAsync("/api/todos", new { id, title = "Renew passport" }, ct);
+        }
+        await _client.PutAsJsonAsync($"/api/todos/{first}/done", new { done = true }, ct);
+        await _client.PutAsJsonAsync($"/api/todos/{second}/done", new { done = true }, ct);
+        await _client.DeleteAsync($"/api/todos/{first}", ct);
+
+        var response = await _client.PostAsync($"/api/todos/{first}/restore", null, ct);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(new TodoJson(first, "Renew passport", Done: true), await response.Content.ReadFromJsonAsync<TodoJson>(ct));
+
+        var todos = await _client.GetFromJsonAsync<List<TodoJson>>("/api/todos", ct);
+        Assert.Contains(new TodoJson(first, "Renew passport", Done: true), todos!);
+        var order = todos!.Select(t => t.Id).Where(id => id == first || id == second);
+        Assert.Equal([second, first], order);
+    }
+
     // The JSON the UI sees, kept apart from the API's DTO so a breaking change to the contract fails here
     private sealed record TodoJson(Guid Id, string Title, bool Done);
 }

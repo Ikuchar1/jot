@@ -37,4 +37,9 @@ public class TodosController(TodoOrchestrator todos) : ControllerBase
         await todos.DeleteAsync(id, ct);
         return NoContent();
     }
+
+    // Undo for a delete: brings the todo back with the same ID and every field it had
+    [HttpPost("{id:guid}/restore", Name = "RestoreTodo")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public Task<TodoDto> RestoreTodo(Guid id, CancellationToken ct) => todos.RestoreAsync(id, ct);
 }
