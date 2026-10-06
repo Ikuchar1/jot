@@ -354,6 +354,23 @@ test('a delete that fails to save puts back only its own todo, in its place', as
   )
 })
 
+test('a delete that fails to save closes its Deleted toast, since there is nothing to undo', async () => {
+  server.use(
+    http.get(todosUrl, () =>
+      HttpResponse.json([{ id: '0199a5b2-0000-7000-8000-000000000001', title: 'Buy milk', done: false }]),
+    ),
+    http.delete(`${todosUrl}/:id`, () => HttpResponse.error()),
+  )
+  const user = userEvent.setup()
+  renderWithProviders(<TodosPage />)
+
+  await user.click(await screen.findByRole('button', { name: 'Delete Buy milk' }))
+
+  expect(await screen.findByText("Can't reach Jot. Check your connection and try again.")).toBeInTheDocument()
+  await waitFor(() => expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument())
+  expect(screen.getByText('Buy milk')).toBeInTheDocument()
+})
+
 test('an Undo that fails to save takes the todo back out', async () => {
   const buyMilk = { id: '0199a5b2-0000-7000-8000-000000000001', title: 'Buy milk', done: false }
   const callTheDentist = { id: '0199a5b2-0000-7000-8000-000000000002', title: 'Call the dentist', done: false }

@@ -19,26 +19,31 @@ export default function TodosPage() {
   const { data: todos, isError, isFetching, refetch } = useListTodos()
   const deleteTodo = useDelete()
   const restore = useRestore()
-  // The last todo deleted and where it was, which Undo puts back. Kept apart from open so it's still there while the
-  // toast animates out
-  const [deleted, setDeleted] = useState<{ todo: TodoDto; index: number } | null>(null)
-  const [toastOpen, setToastOpen] = useState(false)
+  // The Deleted toast: the last todo deleted and where it was, which Undo puts back. The todo stays after it closes, so
+  // it's still there while the toast animates out
+  const [toast, setToast] = useState<{ todo: TodoDto; index: number; open: boolean } | null>(null)
+
+  // Closes the toast only if it's still this todo's: a later delete has replaced it otherwise
+  const closeToastFor = (id: string) => setToast((t) => (t?.todo.id === id ? { ...t, open: false } : t))
 
   function handleDelete(todo: TodoDto) {
-    setDeleted({ todo, index: todos!.findIndex((t) => t.id === todo.id) })
-    deleteTodo(todo.id)
-    setToastOpen(true)
+    setToast({ todo, index: todos!.findIndex((t) => t.id === todo.id), open: true })
+    // A failed delete puts the todo back, so there's nothing left to undo
+    deleteTodo(todo.id, () => closeToastFor(todo.id))
   }
 
   function handleUndo() {
-    restore(deleted!.todo, deleted!.index)
-    setToastOpen(false)
+    // Not while the toast animates out after closing: a failed delete closes it, and the todo is already back
+    if (toast?.open) {
+      restore(toast.todo, toast.index)
+      closeToastFor(toast.todo.id)
+    }
   }
 
   // Not on a click elsewhere: deleting another todo replaces the toast anyway
   function handleToastClose(_event: unknown, reason?: SnackbarCloseReason) {
-    if (reason !== 'clickaway') {
-      setToastOpen(false)
+    if (reason !== 'clickaway' && toast) {
+      closeToastFor(toast.todo.id)
     }
   }
 
@@ -61,8 +66,8 @@ export default function TodosPage() {
       )}
       {/* Keyed by the todo, so a second delete replaces the first's toast and starts its 5 seconds over */}
       <Snackbar
-        key={deleted?.todo.id}
-        open={toastOpen}
+        key={toast?.todo.id}
+        open={toast?.open ?? false}
         autoHideDuration={5000}
         onClose={handleToastClose}
         message="Deleted"

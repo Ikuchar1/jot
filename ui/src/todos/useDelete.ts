@@ -33,5 +33,6 @@ export function useDelete() {
     },
   })
 
-  return (id: string) => mutate({ id })
+  // onFailed lets the caller close its Deleted toast: once the todo is back, there's nothing to undo
+  return (id: string, onFailed?: () => void) => mutate({ id }, { onError: onFailed })
 }
