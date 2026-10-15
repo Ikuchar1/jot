@@ -5,8 +5,11 @@
  * OpenAPI spec version: 1.0.0
  */
 
+export * from './addListRequest';
 export * from './addTodoRequest';
+export * from './listTodosParams';
 export * from './problemDetails';
 export * from './setTodoDoneRequest';
 export * from './todoDto';
+export * from './todoListDto';
 export * from './updateTodoRequest';

@@ -9,4 +9,6 @@ export interface AddTodoRequest {
   title: string;
   /** @nullable */
   id?: string | null;
+  /** @nullable */
+  listId?: string | null;
 }

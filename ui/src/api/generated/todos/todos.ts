@@ -25,6 +25,7 @@ import type {
 
 import type {
   AddTodoRequest,
+  ListTodosParams,
   ProblemDetails,
   SetTodoDoneRequest,
   TodoDto,
@@ -54,17 +55,24 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   return result;
 };
 
-export const getListTodosUrl = () => {
+export const getListTodosUrl = (params?: ListTodosParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/todos`
+  return stringifiedParams.length > 0 ? `/api/todos?${stringifiedParams}` : `/api/todos`
 }
 
-export const listTodos = async ( options?: Parameters<typeof jotFetch>[1]): Promise<TodoDto[]> => {
+export const listTodos = async (params?: ListTodosParams, options?: Parameters<typeof jotFetch>[1]): Promise<TodoDto[]> => {
 
-  return jotFetch<TodoDto[]>(getListTodosUrl(),
+  return jotFetch<TodoDto[]>(getListTodosUrl(params),
   {
     ...options,
     method: 'GET'
@@ -77,23 +85,23 @@ export const listTodos = async ( options?: Parameters<typeof jotFetch>[1]): Prom
 
 
 
-export const getListTodosQueryKey = () => {
+export const getListTodosQueryKey = (params?: ListTodosParams,) => {
     return [
-    `/api/todos`
+    `/api/todos`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getListTodosQueryOptions = <TData = Awaited<ReturnType<typeof listTodos>>, TError = ErrorType<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTodos>>, TError, TData>>, request?: SecondParameter<typeof jotFetch>}
+export const getListTodosQueryOptions = <TData = Awaited<ReturnType<typeof listTodos>>, TError = ErrorType<unknown>>(params?: ListTodosParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTodos>>, TError, TData>>, request?: SecondParameter<typeof jotFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getListTodosQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getListTodosQueryKey(params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listTodos>>> = ({ signal }) => listTodos({ signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listTodos>>> = ({ signal }) => listTodos(params, { signal, ...requestOptions });
 
 
 
@@ -107,7 +115,7 @@ export type ListTodosQueryError = ErrorType<unknown>
 
 
 export function useListTodos<TData = Awaited<ReturnType<typeof listTodos>>, TError = ErrorType<unknown>>(
-  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTodos>>, TError, TData>> & Pick<
+ params: undefined |  ListTodosParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTodos>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof listTodos>>,
           TError,
@@ -117,7 +125,7 @@ export function useListTodos<TData = Awaited<ReturnType<typeof listTodos>>, TErr
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 export function useListTodos<TData = Awaited<ReturnType<typeof listTodos>>, TError = ErrorType<unknown>>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTodos>>, TError, TData>> & Pick<
+ params?: ListTodosParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTodos>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof listTodos>>,
           TError,
@@ -127,16 +135,16 @@ export function useListTodos<TData = Awaited<ReturnType<typeof listTodos>>, TErr
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 export function useListTodos<TData = Awaited<ReturnType<typeof listTodos>>, TError = ErrorType<unknown>>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTodos>>, TError, TData>>, request?: SecondParameter<typeof jotFetch>}
+ params?: ListTodosParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTodos>>, TError, TData>>, request?: SecondParameter<typeof jotFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 
 export function useListTodos<TData = Awaited<ReturnType<typeof listTodos>>, TError = ErrorType<unknown>>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTodos>>, TError, TData>>, request?: SecondParameter<typeof jotFetch>}
+ params?: ListTodosParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTodos>>, TError, TData>>, request?: SecondParameter<typeof jotFetch>}
  , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
-  const queryOptions = getListTodosQueryOptions(options)
+  const queryOptions = getListTodosQueryOptions(params,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

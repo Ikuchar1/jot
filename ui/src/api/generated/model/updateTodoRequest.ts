@@ -9,4 +9,6 @@ export interface UpdateTodoRequest {
   title: string;
   /** @nullable */
   notes: string | null;
+  /** @nullable */
+  listId?: string | null;
 }
