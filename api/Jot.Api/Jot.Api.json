@@ -5,6 +5,45 @@
     "version": "1.0.0"
   },
   "paths": {
+    "/api/lists": {
+      "get": {
+        "tags": [
+          "Lists"
+        ],
+        "operationId": "ListLists",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TodoListDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TodoListDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TodoListDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/todos": {
       "get": {
         "tags": [
@@ -434,6 +473,35 @@
           }
         }
       },
+      "TodoListDto": {
+        "required": [
+          "id",
+          "name",
+          "isInbox",
+          "notDoneCount"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "isInbox": {
+            "type": "boolean"
+          },
+          "notDoneCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
       "UpdateTodoRequest": {
         "required": [
           "title",
@@ -455,6 +523,9 @@
     }
   },
   "tags": [
+    {
+      "name": "Lists"
+    },
     {
       "name": "Todos"
     }

@@ -5,6 +5,9 @@ public class Todo
     public Guid Id { get; set; }
     public required string Title { get; set; }
 
+    // The List it's in (see JotDbContext)
+    public Guid ListId { get; set; }
+
     // Optional free text, like a link to the assignment; null when there are none
     public string? Notes { get; set; }
 
