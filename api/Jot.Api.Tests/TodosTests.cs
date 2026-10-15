@@ -363,6 +363,42 @@ public class TodosTests(JotApiFactory api)
         Assert.DoesNotContain(inbox!, t => t.Id == inSchool);
     }
 
+    [Fact]
+    public async Task Todo_moved_to_another_list_shows_under_the_new_list_and_not_the_old()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (from, to) = (await AddListAsync("School", ct), await AddListAsync("Work", ct));
+        var id = Guid.CreateVersion7();
+        await _client.PostAsJsonAsync("/api/todos", new { id, title = "Expense report", listId = from }, ct);
+
+        var response = await _client.PutAsJsonAsync(
+            $"/api/todos/{id}", new { title = "Expense report", notes = (string?)null, listId = to }, ct);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var moved = new ListedTodoJson(id, "Expense report", Done: false, Notes: null, to);
+        Assert.Equal(moved, await response.Content.ReadFromJsonAsync<ListedTodoJson>(ct));
+        Assert.Equal([moved], await _client.GetFromJsonAsync<List<ListedTodoJson>>($"/api/todos?listId={to}", ct));
+        Assert.Empty((await _client.GetFromJsonAsync<List<ListedTodoJson>>($"/api/todos?listId={from}", ct))!);
+    }
+
+    [Fact]
+    public async Task Moving_a_todo_to_a_list_that_does_not_exist_is_a_404_and_it_stays_where_it_was()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var listId = await AddListAsync("School", ct);
+        var id = Guid.CreateVersion7();
+        await _client.PostAsJsonAsync("/api/todos", new { id, title = "Flashcards", listId }, ct);
+
+        var response = await _client.PutAsJsonAsync(
+            $"/api/todos/{id}", new { title = "Flashcards", notes = (string?)null, listId = Guid.CreateVersion7() }, ct);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemJson>(ct);
+        Assert.Equal(new ProblemJson(404, "Not Found", "That list doesn't exist. It may have been deleted."), problem);
+        var todos = await _client.GetFromJsonAsync<List<ListedTodoJson>>($"/api/todos?listId={listId}", ct);
+        Assert.Contains(todos!, t => t.Id == id);
+    }
+
     // The database is shared by every test, so each list gets a name no other test uses
     private async Task<Guid> AddListAsync(string name, CancellationToken ct)
     {

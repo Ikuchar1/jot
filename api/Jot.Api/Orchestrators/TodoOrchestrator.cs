@@ -61,6 +61,7 @@ public class TodoOrchestrator(JotDbContext db)
         todo.Title = request.Title;
         // Clearing the notes box leaves "" or stray spaces behind; either way the todo has no notes
         todo.Notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes;
+        todo.ListId = await ListIdAsync(request.ListId, ct);
         await db.SaveChangesAsync(ct);
         return TodoDto.From(todo);
     }

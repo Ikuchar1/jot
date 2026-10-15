@@ -615,6 +615,13 @@
               "null",
               "string"
             ]
+          },
+          "listId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       }
