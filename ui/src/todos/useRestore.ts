@@ -5,10 +5,10 @@ import type { TodoDto } from '../api/generated/model'
 import { earlierSavesSettled } from './earlierSaves'
 import { resyncTodos } from './resyncTodos'
 
-// Undo for a delete
-export function useRestore() {
+// Undo for a delete, on the page of list listId
+export function useRestore(listId: string) {
   const queryClient = useQueryClient()
-  const todosKey = getListTodosQueryKey()
+  const todosKey = getListTodosQueryKey({ listId })
   // The API only needs the ID, but putting the todo back on the page needs all of it, and where it was
   const restoring = useRef(new Map<string, { todo: TodoDto; index: number }>())
 

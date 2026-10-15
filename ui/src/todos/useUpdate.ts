@@ -3,13 +3,14 @@ import { getListTodosQueryKey, useUpdateTodo } from '../api/generated'
 import type { TodoDto, UpdateTodoRequest } from '../api/generated/model'
 import { resyncTodos } from './resyncTodos'
 
-export function useUpdate() {
+// listId is the list whose page it's edited on
+export function useUpdate(listId: string) {
   const queryClient = useQueryClient()
-  const todosKey = getListTodosQueryKey()
+  const todosKey = getListTodosQueryKey({ listId })
 
-  const patch = (id: string, fields: UpdateTodoRequest) =>
+  const patch = (id: string, { title, notes }: Pick<TodoDto, 'title' | 'notes'>) =>
     queryClient.setQueryData<TodoDto[]>(todosKey, (todos) =>
-      todos?.map((todo) => (todo.id === id ? { ...todo, ...fields } : todo)),
+      todos?.map((todo) => (todo.id === id ? { ...todo, title, notes } : todo)),
     )
 
   const { mutate } = useUpdateTodo({

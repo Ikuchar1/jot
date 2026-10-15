@@ -7,18 +7,21 @@ import Button from '@mui/material/Button'
 import CircularProgress from '@mui/material/CircularProgress'
 import List from '@mui/material/List'
 import Snackbar, { type SnackbarCloseReason } from '@mui/material/Snackbar'
+import Typography from '@mui/material/Typography'
 import { useState } from 'react'
-import { useListTodos } from '../api/generated'
+import { useListLists, useListTodos } from '../api/generated'
 import type { TodoDto } from '../api/generated/model'
 import QuickAdd from './QuickAdd'
 import TodoItem from './TodoItem'
 import { useDelete } from './useDelete'
 import { useRestore } from './useRestore'
 
-export default function TodosPage() {
-  const { data: todos, isError, isFetching, refetch } = useListTodos()
-  const deleteTodo = useDelete()
-  const restore = useRestore()
+// A list's page: its name, and its todos
+export default function TodosPage({ listId }: { listId: string }) {
+  const list = useListLists().data?.find((l) => l.id === listId)
+  const { data: todos, isError, isFetching, refetch } = useListTodos({ listId })
+  const deleteTodo = useDelete(listId)
+  const restore = useRestore(listId)
   // The Deleted toast: the last todo deleted and where it was, which Undo puts back. The todo stays after it closes, so
   // it's still there while the toast animates out
   const [toast, setToast] = useState<{ todo: TodoDto; index: number; open: boolean } | null>(null)
@@ -49,10 +52,15 @@ export default function TodosPage() {
 
   return (
     <>
-      <QuickAdd />
+      {list && (
+        <Typography variant="h4" component="h1" gutterBottom>
+          {list.name}
+        </Typography>
+      )}
+      <QuickAdd listId={listId} />
       {/* Todos that loaded stay even if a later reload fails; the toast says why */}
       {todos && (todos.length > 0 || !isError) ? (
-        <TodoSections todos={todos} onDelete={handleDelete} />
+        <TodoSections todos={todos} listId={listId} onDelete={handleDelete} />
       ) : (
         // Otherwise a spinner while it's trying (retries included), so an API that can't be reached doesn't look like
         // an empty list, and once it gives up, a way to try again
@@ -82,7 +90,9 @@ export default function TodosPage() {
 }
 
 // The API sends the todos in order, done ones last, so this only splits them; it doesn't sort
-function TodoSections({ todos, onDelete }: { todos: TodoDto[]; onDelete: (todo: TodoDto) => void }) {
+type SectionsProps = { todos: TodoDto[]; listId: string; onDelete: (todo: TodoDto) => void }
+
+function TodoSections({ todos, listId, onDelete }: SectionsProps) {
   const notDone = todos.filter((todo) => !todo.done)
   const done = todos.filter((todo) => todo.done)
 
@@ -90,7 +100,7 @@ function TodoSections({ todos, onDelete }: { todos: TodoDto[]; onDelete: (todo: 
     <>
       <List>
         {notDone.map((todo) => (
-          <TodoItem key={todo.id} todo={todo} onDelete={onDelete} />
+          <TodoItem key={todo.id} todo={todo} listId={listId} onDelete={onDelete} />
         ))}
       </List>
       {done.length > 0 && (
@@ -100,7 +110,7 @@ function TodoSections({ todos, onDelete }: { todos: TodoDto[]; onDelete: (todo: 
           <AccordionDetails sx={{ p: 0 }}>
             <List>
               {done.map((todo) => (
-                <TodoItem key={todo.id} todo={todo} onDelete={onDelete} />
+                <TodoItem key={todo.id} todo={todo} listId={listId} onDelete={onDelete} />
               ))}
             </List>
           </AccordionDetails>

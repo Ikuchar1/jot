@@ -1,13 +1,22 @@
 import { act, screen, waitForElementToBeRemoved } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { delay, http, HttpResponse } from 'msw'
-import { afterEach, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, expect, test, vi } from 'vitest'
+import type { TodoListDto } from './generated/model'
 import { renderWithProviders } from '../test/render'
 import { server } from '../test/server'
 import TodosPage from '../todos/TodosPage'
 
 // The Todos page is just something that calls the API; any failed call should end up in the toast
 const todosUrl = 'http://api.test/api/todos'
+
+const listsUrl = 'http://api.test/api/lists'
+const inbox: TodoListDto = { id: '0199e1c0-0000-7000-8000-000000000001', name: 'Inbox', isInbox: true, notDoneCount: 0 }
+
+// The page shows its list's name, so every test needs the lists
+beforeEach(() => {
+  server.use(http.get(listsUrl, () => HttpResponse.json([inbox])))
+})
 
 afterEach(() => {
   vi.useRealTimers()
@@ -30,7 +39,7 @@ test("a quick-add the API turns down shows the API's reason in a toast", async (
     ),
   )
   const user = userEvent.setup()
-  renderWithProviders(<TodosPage />)
+  renderWithProviders(<TodosPage listId={inbox.id} />)
 
   await user.type(screen.getByRole('textbox', { name: 'Add a todo' }), 'Buy milk{Enter}')
 
@@ -47,14 +56,14 @@ test('a list that fails to load shows the problem in a toast', async () => {
       ),
     ),
   )
-  renderWithProviders(<TodosPage />)
+  renderWithProviders(<TodosPage listId={inbox.id} />)
 
   expect(await screen.findByRole('alert')).toHaveTextContent('An error occurred while processing your request.')
 })
 
 test("an API that can't be reached shows a plain-words toast", async () => {
   server.use(http.get(todosUrl, () => HttpResponse.error()))
-  renderWithProviders(<TodosPage />)
+  renderWithProviders(<TodosPage listId={inbox.id} />)
 
   expect(await screen.findByRole('alert')).toHaveTextContent("Can't reach Jot. Check your connection and try again.")
 })
@@ -62,7 +71,7 @@ test("an API that can't be reached shows a plain-words toast", async () => {
 test("an error that isn't problem details still shows a toast", async () => {
   // e.g. a proxy in front of the API answering with its own HTML page
   server.use(http.get(todosUrl, () => HttpResponse.html('<h1>502 Bad Gateway</h1>', { status: 502 })))
-  renderWithProviders(<TodosPage />)
+  renderWithProviders(<TodosPage listId={inbox.id} />)
 
   expect(await screen.findByRole('alert')).toHaveTextContent('Something went wrong (error 502).')
 })
@@ -70,7 +79,7 @@ test("an error that isn't problem details still shows a toast", async () => {
 test('clicking elsewhere on the page leaves the toast open', async () => {
   server.use(http.get(todosUrl, () => HttpResponse.error()))
   const user = userEvent.setup()
-  renderWithProviders(<TodosPage />)
+  renderWithProviders(<TodosPage listId={inbox.id} />)
   const toast = await screen.findByRole('alert')
 
   // Like tapping back into quick-add to try again
@@ -83,7 +92,7 @@ test('clicking elsewhere on the page leaves the toast open', async () => {
 test("a list that fails to load keeps its toast open, since nothing else on the page says why it's missing", async () => {
   vi.useFakeTimers({ shouldAdvanceTime: true })
   server.use(http.get(todosUrl, () => HttpResponse.error()))
-  renderWithProviders(<TodosPage />)
+  renderWithProviders(<TodosPage listId={inbox.id} />)
   await screen.findByRole('alert')
 
   await waitPastAutoClose()
@@ -97,7 +106,7 @@ test('trying the list again closes its toast', async () => {
     http.get(todosUrl, () => delay('infinite')),
   )
   const user = userEvent.setup()
-  renderWithProviders(<TodosPage />)
+  renderWithProviders(<TodosPage listId={inbox.id} />)
   const toast = await screen.findByRole('alert')
 
   await user.click(screen.getByRole('button', { name: 'Try again' }))
@@ -113,7 +122,7 @@ test("a failed save's toast still closes on its own", async () => {
     http.post(todosUrl, () => new HttpResponse(null, { status: 500 })),
   )
   const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
-  renderWithProviders(<TodosPage />)
+  renderWithProviders(<TodosPage listId={inbox.id} />)
   await user.type(screen.getByRole('textbox', { name: 'Add a todo' }), 'Buy milk{Enter}')
   await screen.findByRole('alert')
 

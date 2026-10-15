@@ -2,13 +2,27 @@ import { act, screen, waitFor, waitForElementToBeRemoved, within } from '@testin
 import userEvent from '@testing-library/user-event'
 import { delay, http, HttpResponse } from 'msw'
 import { version } from 'uuid'
-import { afterEach, expect, test, vi } from 'vitest'
-import type { AddTodoRequest, SetTodoDoneRequest, TodoDto, UpdateTodoRequest } from '../api/generated/model'
+import { afterEach, beforeEach, expect, test, vi } from 'vitest'
+import type {
+  AddTodoRequest,
+  SetTodoDoneRequest,
+  TodoDto,
+  TodoListDto,
+  UpdateTodoRequest,
+} from '../api/generated/model'
 import { renderWithProviders } from '../test/render'
 import { server } from '../test/server'
 import TodosPage from './TodosPage'
 
 const todosUrl = 'http://api.test/api/todos'
+
+const listsUrl = 'http://api.test/api/lists'
+const inbox: TodoListDto = { id: '0199e1c0-0000-7000-8000-000000000001', name: 'Inbox', isInbox: true, notDoneCount: 0 }
+
+// The page shows its list's name, so every test needs the lists
+beforeEach(() => {
+  server.use(http.get(listsUrl, () => HttpResponse.json([inbox])))
+})
 
 afterEach(() => {
   vi.useRealTimers()
@@ -24,7 +38,7 @@ test('shows the saved todos', async () => {
     ),
   )
 
-  renderWithProviders(<TodosPage />)
+  renderWithProviders(<TodosPage listId={inbox.id} />)
 
   expect(await screen.findByText('Buy milk')).toBeInTheDocument()
   expect(screen.getByText('Call the dentist')).toBeInTheDocument()
@@ -40,7 +54,7 @@ test('done todos wait in a collapsed Done section that opens when clicked', asyn
     ),
   )
   const user = userEvent.setup()
-  renderWithProviders(<TodosPage />)
+  renderWithProviders(<TodosPage listId={inbox.id} />)
 
   expect(await screen.findByRole('checkbox', { name: 'Buy milk' })).not.toBeChecked()
   expect(screen.queryByText('Call the dentist')).not.toBeInTheDocument()
@@ -67,7 +81,7 @@ test('checking a todo moves it into Done right away and saves it as done', async
     }),
   )
   const user = userEvent.setup()
-  renderWithProviders(<TodosPage />)
+  renderWithProviders(<TodosPage listId={inbox.id} />)
 
   await user.click(await screen.findByRole('checkbox', { name: 'Buy milk' }))
   await user.click(screen.getByRole('button', { name: 'Done (1)' }))
@@ -92,7 +106,7 @@ test('un-checking a done todo moves it back out of Done right away and saves it 
     }),
   )
   const user = userEvent.setup()
-  renderWithProviders(<TodosPage />)
+  renderWithProviders(<TodosPage listId={inbox.id} />)
 
   await user.click(await screen.findByRole('button', { name: 'Done (1)' }))
   await user.click(await screen.findByRole('checkbox', { name: 'Call the dentist' }))
@@ -120,7 +134,7 @@ test('a checked todo that fails to save snaps back', async () => {
     }),
   )
   const user = userEvent.setup()
-  renderWithProviders(<TodosPage />)
+  renderWithProviders(<TodosPage listId={inbox.id} />)
 
   await user.click(await screen.findByRole('checkbox', { name: 'Buy milk' }))
   await screen.findByRole('button', { name: 'Done (1)' })
@@ -142,7 +156,7 @@ test('after an un-check saves, the todo moves to its place in the list', async (
     }),
   )
   const user = userEvent.setup()
-  renderWithProviders(<TodosPage />)
+  renderWithProviders(<TodosPage listId={inbox.id} />)
 
   await user.click(await screen.findByRole('button', { name: 'Done (1)' }))
   await user.click(await screen.findByRole('checkbox', { name: 'Buy milk' }))
@@ -165,7 +179,7 @@ test('a check that saves while a quick-add is still saving keeps the new todo', 
     }),
   )
   const user = userEvent.setup()
-  renderWithProviders(<TodosPage />)
+  renderWithProviders(<TodosPage listId={inbox.id} />)
   const checkbox = await screen.findByRole('checkbox', { name: 'Call the dentist' })
 
   await user.type(screen.getByRole('textbox', { name: 'Add a todo' }), 'Buy milk{Enter}')
@@ -180,13 +194,19 @@ test('a check that saves while a quick-add is still saving keeps the new todo', 
 
 test('a quick-add that saves while a check is still saving keeps the todo in Done', async () => {
   const saved: TodoDto[] = [
-    { id: '0199a5b2-0000-7000-8000-000000000001', title: 'Call the dentist', done: false, notes: null },
+    {
+      id: '0199a5b2-0000-7000-8000-000000000001',
+      title: 'Call the dentist',
+      done: false,
+      notes: null,
+      listId: inbox.id,
+    },
   ]
   server.use(
     http.get(todosUrl, () => HttpResponse.json(saved)),
     http.post(todosUrl, async ({ request }) => {
       const { id, title } = (await request.json()) as AddTodoRequest
-      const todo = { id: id!, title, done: false, notes: null }
+      const todo = { id: id!, title, done: false, notes: null, listId: inbox.id }
       saved.push(todo)
       return HttpResponse.json(todo, { status: 201 })
     }),
@@ -194,7 +214,7 @@ test('a quick-add that saves while a check is still saving keeps the todo in Don
     http.put(`${todosUrl}/:id/done`, () => delay('infinite')),
   )
   const user = userEvent.setup()
-  renderWithProviders(<TodosPage />)
+  renderWithProviders(<TodosPage listId={inbox.id} />)
 
   await user.click(await screen.findByRole('checkbox', { name: 'Call the dentist' }))
   await screen.findByRole('button', { name: 'Done (1)' })
@@ -222,7 +242,7 @@ test('deleting a todo takes it off the page right away and deletes it', async ()
     }),
   )
   const user = userEvent.setup()
-  renderWithProviders(<TodosPage />)
+  renderWithProviders(<TodosPage listId={inbox.id} />)
 
   await user.click(await screen.findByRole('button', { name: 'Delete Buy milk' }))
 
@@ -240,7 +260,7 @@ test('deleting a todo shows a Deleted toast with Undo that closes after about 5 
     http.delete(`${todosUrl}/:id`, () => new HttpResponse(null, { status: 204 })),
   )
   const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
-  renderWithProviders(<TodosPage />)
+  renderWithProviders(<TodosPage listId={inbox.id} />)
 
   await user.click(await screen.findByRole('button', { name: 'Delete Buy milk' }))
 
@@ -271,7 +291,7 @@ test('Undo puts the deleted todo back in its place right away, restores it, and 
     }),
   )
   const user = userEvent.setup()
-  renderWithProviders(<TodosPage />)
+  renderWithProviders(<TodosPage listId={inbox.id} />)
 
   await user.click(await screen.findByRole('button', { name: 'Delete Call the dentist' }))
   await waitFor(() =>
@@ -318,7 +338,7 @@ test('a done todo deleted from Done goes right away, and Undo puts it back in Do
     }),
   )
   const user = userEvent.setup()
-  renderWithProviders(<TodosPage />)
+  renderWithProviders(<TodosPage listId={inbox.id} />)
 
   await user.click(await screen.findByRole('button', { name: 'Done (1)' }))
   await user.click(await screen.findByRole('button', { name: 'Delete Call the dentist' }))
@@ -354,7 +374,7 @@ test('a delete that fails to save puts back only its own todo, in its place', as
     }),
   )
   const user = userEvent.setup()
-  renderWithProviders(<TodosPage />)
+  renderWithProviders(<TodosPage listId={inbox.id} />)
 
   await user.click(await screen.findByRole('button', { name: 'Delete Buy milk' }))
   await user.click(screen.getByRole('button', { name: 'Delete Pay rent' }))
@@ -374,7 +394,7 @@ test('a delete that fails to save closes its Deleted toast, since there is nothi
     http.delete(`${todosUrl}/:id`, () => HttpResponse.error()),
   )
   const user = userEvent.setup()
-  renderWithProviders(<TodosPage />)
+  renderWithProviders(<TodosPage listId={inbox.id} />)
 
   await user.click(await screen.findByRole('button', { name: 'Delete Buy milk' }))
 
@@ -404,7 +424,7 @@ test('a delete that fails after its Undo was tapped shows the todo once', async 
   )
   const consoleError = vi.spyOn(console, 'error')
   const user = userEvent.setup()
-  renderWithProviders(<TodosPage />)
+  renderWithProviders(<TodosPage listId={inbox.id} />)
 
   await user.click(await screen.findByRole('button', { name: 'Delete Call the dentist' }))
   await user.click(screen.getByRole('button', { name: 'Undo' }))
@@ -446,7 +466,7 @@ test('Undo tapped while the delete is still saving leaves the todo restored', as
     }),
   )
   const user = userEvent.setup()
-  renderWithProviders(<TodosPage />)
+  renderWithProviders(<TodosPage listId={inbox.id} />)
 
   await user.click(await screen.findByRole('button', { name: 'Delete Call the dentist' }))
   await user.click(screen.getByRole('button', { name: 'Undo' }))
@@ -485,7 +505,7 @@ test('deleting a todo again after its Undo, while the first delete is still savi
     }),
   )
   const user = userEvent.setup()
-  renderWithProviders(<TodosPage />)
+  renderWithProviders(<TodosPage listId={inbox.id} />)
 
   await user.click(await screen.findByRole('button', { name: 'Delete Call the dentist' }))
   await user.click(screen.getByRole('button', { name: 'Undo' }))
@@ -515,7 +535,7 @@ test('an Undo that fails to save takes the todo back out', async () => {
     }),
   )
   const user = userEvent.setup()
-  renderWithProviders(<TodosPage />)
+  renderWithProviders(<TodosPage listId={inbox.id} />)
 
   await user.click(await screen.findByRole('button', { name: 'Delete Call the dentist' }))
   await waitFor(() => expect(screen.getAllByRole('listitem').map((item) => item.textContent)).toEqual(['Buy milk']))
@@ -532,7 +552,7 @@ test('shows a spinner until the todos load', async () => {
     http.get(todosUrl, () => HttpResponse.json([{ id: '0199a5b2-0000-7000-8000-000000000001', title: 'Buy milk' }])),
   )
 
-  renderWithProviders(<TodosPage />)
+  renderWithProviders(<TodosPage listId={inbox.id} />)
 
   await waitForElementToBeRemoved(screen.getByRole('progressbar', { name: 'Loading todos' }))
   expect(screen.getByText('Buy milk')).toBeInTheDocument()
@@ -541,7 +561,7 @@ test('shows a spinner until the todos load', async () => {
 test('once loading the todos gives up, Try again replaces the spinner', async () => {
   server.use(http.get(todosUrl, () => HttpResponse.error()))
 
-  renderWithProviders(<TodosPage />)
+  renderWithProviders(<TodosPage listId={inbox.id} />)
 
   // The toast says why; a spinner that kept going would say it's still trying
   expect(await screen.findByRole('button', { name: 'Try again' })).toBeInTheDocument()
@@ -560,7 +580,7 @@ test('Try again shows the spinner until the todos load', async () => {
     }),
   )
   const user = userEvent.setup()
-  renderWithProviders(<TodosPage />)
+  renderWithProviders(<TodosPage listId={inbox.id} />)
 
   await user.click(await screen.findByRole('button', { name: 'Try again' }))
   const spinner = await screen.findByRole('progressbar', { name: 'Loading todos' })
@@ -581,7 +601,7 @@ test('Try again comes back when a quick-add fails before the todos could load', 
     }),
   )
   const user = userEvent.setup()
-  renderWithProviders(<TodosPage />)
+  renderWithProviders(<TodosPage listId={inbox.id} />)
   await screen.findByRole('button', { name: 'Try again' })
 
   await user.type(screen.getByRole('textbox', { name: 'Add a todo' }), 'Buy milk{Enter}')
@@ -603,7 +623,7 @@ test('todos that loaded stay when a later reload fails', async () => {
     http.post(todosUrl, () => new HttpResponse(null, { status: 500 })),
   )
   const user = userEvent.setup()
-  renderWithProviders(<TodosPage />)
+  renderWithProviders(<TodosPage listId={inbox.id} />)
   await screen.findByText('Call the dentist')
 
   // The add fails, and so does the reload of the list that follows it
@@ -625,7 +645,7 @@ test('quick-add saves the todo with a UUID v7 the UI created', async () => {
     }),
   )
   const user = userEvent.setup()
-  renderWithProviders(<TodosPage />)
+  renderWithProviders(<TodosPage listId={inbox.id} />)
 
   await user.type(screen.getByRole('textbox', { name: 'Add a todo' }), 'Buy milk{Enter}')
 
@@ -645,7 +665,7 @@ test("quick-add doesn't send a blank title", async () => {
     }),
   )
   const user = userEvent.setup()
-  renderWithProviders(<TodosPage />)
+  renderWithProviders(<TodosPage listId={inbox.id} />)
   const quickAdd = screen.getByRole('textbox', { name: 'Add a todo' })
 
   await user.type(quickAdd, '   {Enter}')
@@ -659,7 +679,7 @@ test("quick-add doesn't send a blank title", async () => {
 
 test("quick-add doesn't suggest what was typed before", () => {
   server.use(http.get(todosUrl, () => HttpResponse.json([])))
-  renderWithProviders(<TodosPage />)
+  renderWithProviders(<TodosPage listId={inbox.id} />)
 
   // The browser's suggestions, which it saves from every submitted form
   expect(screen.getByRole('textbox', { name: 'Add a todo' })).toHaveAttribute('autocomplete', 'off')
@@ -672,7 +692,7 @@ test('a quick-added todo shows up before the API answers', async () => {
     http.post(todosUrl, () => delay('infinite')),
   )
   const user = userEvent.setup()
-  renderWithProviders(<TodosPage />)
+  renderWithProviders(<TodosPage listId={inbox.id} />)
   const quickAdd = screen.getByRole('textbox', { name: 'Add a todo' })
 
   await user.type(quickAdd, 'Buy milk{Enter}')
@@ -692,7 +712,7 @@ test('a quick-added todo that fails to save is taken back out', async () => {
     }),
   )
   const user = userEvent.setup()
-  renderWithProviders(<TodosPage />)
+  renderWithProviders(<TodosPage listId={inbox.id} />)
 
   await user.type(screen.getByRole('textbox', { name: 'Add a todo' }), 'Buy milk{Enter}')
   const todo = await screen.findByText('Buy milk')
@@ -714,7 +734,7 @@ test('a failed quick-add takes out only its own todo, not one still saving', asy
     }),
   )
   const user = userEvent.setup()
-  renderWithProviders(<TodosPage />)
+  renderWithProviders(<TodosPage listId={inbox.id} />)
   const quickAdd = screen.getByRole('textbox', { name: 'Add a todo' })
 
   await user.type(quickAdd, 'Buy milk{Enter}')
@@ -733,17 +753,23 @@ test('after a quick-add saves, the list catches up with the API', async () => {
     http.get(todosUrl, () => HttpResponse.json(saved)),
     http.post(todosUrl, async ({ request }) => {
       const { id, title } = (await request.json()) as AddTodoRequest
-      const todo = { id: id!, title, done: false, notes: null }
+      const todo = { id: id!, title, done: false, notes: null, listId: inbox.id }
       // Meanwhile another caller (Siri, say) added one too
       saved.push(
-        { id: '0199a5b2-0000-7000-8000-000000000001', title: 'Call the dentist', done: false, notes: null },
+        {
+          id: '0199a5b2-0000-7000-8000-000000000001',
+          title: 'Call the dentist',
+          done: false,
+          notes: null,
+          listId: inbox.id,
+        },
         todo,
       )
       return HttpResponse.json(todo, { status: 201 })
     }),
   )
   const user = userEvent.setup()
-  renderWithProviders(<TodosPage />)
+  renderWithProviders(<TodosPage listId={inbox.id} />)
 
   await user.type(screen.getByRole('textbox', { name: 'Add a todo' }), 'Buy milk{Enter}')
 
@@ -760,7 +786,7 @@ test("tapping a todo's title opens the editor with its title and notes filled in
     ),
   )
   const user = userEvent.setup()
-  renderWithProviders(<TodosPage />)
+  renderWithProviders(<TodosPage listId={inbox.id} />)
 
   await user.click(await screen.findByRole('button', { name: 'History essay' }))
 
@@ -782,7 +808,7 @@ test('saving an edit closes the editor, shows the new title right away, and save
     }),
   )
   const user = userEvent.setup()
-  renderWithProviders(<TodosPage />)
+  renderWithProviders(<TodosPage listId={inbox.id} />)
 
   await user.click(await screen.findByRole('button', { name: 'Essay' }))
   const editor = await screen.findByRole('dialog', { name: 'Edit todo' })
@@ -814,7 +840,7 @@ test('clearing the notes and saving saves the todo with no notes', async () => {
     }),
   )
   const user = userEvent.setup()
-  renderWithProviders(<TodosPage />)
+  renderWithProviders(<TodosPage listId={inbox.id} />)
 
   await user.click(await screen.findByRole('button', { name: 'Essay' }))
   const editor = await screen.findByRole('dialog', { name: 'Edit todo' })
@@ -836,7 +862,7 @@ test("Save is disabled while the editor's title is blank, so a blank title can't
     }),
   )
   const user = userEvent.setup()
-  renderWithProviders(<TodosPage />)
+  renderWithProviders(<TodosPage listId={inbox.id} />)
 
   await user.click(await screen.findByRole('button', { name: 'Essay' }))
   const editor = await screen.findByRole('dialog', { name: 'Edit todo' })
@@ -859,7 +885,7 @@ test('Cancel closes the editor without saving', async () => {
     ),
   )
   const user = userEvent.setup()
-  renderWithProviders(<TodosPage />)
+  renderWithProviders(<TodosPage listId={inbox.id} />)
 
   await user.click(await screen.findByRole('button', { name: 'Essay' }))
   const editor = await screen.findByRole('dialog', { name: 'Edit todo' })
@@ -882,7 +908,7 @@ test("tapping a todo's checkbox or delete button doesn't open the editor", async
     http.delete(`${todosUrl}/:id`, () => delay('infinite')),
   )
   const user = userEvent.setup()
-  renderWithProviders(<TodosPage />)
+  renderWithProviders(<TodosPage listId={inbox.id} />)
   const checkbox = await screen.findByRole('checkbox', { name: 'Essay' })
   // Checking or deleting a todo takes it out of the list, which would close an editor it opened, so this watches for
   // one opening at any point
@@ -919,7 +945,7 @@ test('an edit that fails to save puts back the todo as it was', async () => {
     }),
   )
   const user = userEvent.setup()
-  renderWithProviders(<TodosPage />)
+  renderWithProviders(<TodosPage listId={inbox.id} />)
 
   await user.click(await screen.findByRole('button', { name: 'Essay' }))
   const editor = await screen.findByRole('dialog', { name: 'Edit todo' })
@@ -946,7 +972,7 @@ test('a todo in Done can be opened and edited too', async () => {
     }),
   )
   const user = userEvent.setup()
-  renderWithProviders(<TodosPage />)
+  renderWithProviders(<TodosPage listId={inbox.id} />)
 
   await user.click(await screen.findByRole('button', { name: 'Done (1)' }))
   await user.click(await screen.findByRole('button', { name: 'Essay' }))

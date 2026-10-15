@@ -2,9 +2,10 @@ import TextField from '@mui/material/TextField'
 import { useState, type FormEvent } from 'react'
 import { useQuickAdd } from './useQuickAdd'
 
-export default function QuickAdd() {
+// listId is the list whose page it's on
+export default function QuickAdd({ listId }: { listId: string }) {
   const [title, setTitle] = useState('')
-  const add = useQuickAdd()
+  const add = useQuickAdd(listId)
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault()

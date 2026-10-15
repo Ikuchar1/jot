@@ -4,9 +4,10 @@ import type { TodoDto } from '../api/generated/model'
 import { earlierSavesSettled } from './earlierSaves'
 import { resyncTodos } from './resyncTodos'
 
-export function useDelete() {
+// listId is the list whose page it's deleted from
+export function useDelete(listId: string) {
   const queryClient = useQueryClient()
-  const todosKey = getListTodosQueryKey()
+  const todosKey = getListTodosQueryKey({ listId })
 
   const { mutate } = useDeleteTodo({
     mutation: {

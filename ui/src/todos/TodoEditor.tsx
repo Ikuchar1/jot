@@ -10,10 +10,11 @@ import { useId, useState, type FormEvent } from 'react'
 import type { TodoDto } from '../api/generated/model'
 import { useUpdate } from './useUpdate'
 
-type Props = { todo: TodoDto; open: boolean; onClose: () => void }
+// listId is the list whose page it's opened from
+type Props = { todo: TodoDto; listId: string; open: boolean; onClose: () => void }
 
 // Everything about a todo that can be changed. Later slices add their fields here (list, due date, priority).
-export default function TodoEditor({ todo, open, onClose }: Props) {
+export default function TodoEditor({ todo, listId, open, onClose }: Props) {
   const titleId = useId()
   // Full screen on a phone, where a floating dialog leaves little room for the keyboard
   const fullScreen = useMediaQuery(useTheme().breakpoints.down('sm'))
@@ -22,15 +23,15 @@ export default function TodoEditor({ todo, open, onClose }: Props) {
     <Dialog open={open} onClose={onClose} fullScreen={fullScreen} fullWidth aria-labelledby={titleId}>
       <DialogTitle id={titleId}>Edit todo</DialogTitle>
       {/* The dialog unmounts its contents once closed, so each opening starts from the todo as it is now */}
-      <EditorForm todo={todo} onClose={onClose} />
+      <EditorForm todo={todo} listId={listId} onClose={onClose} />
     </Dialog>
   )
 }
 
-function EditorForm({ todo, onClose }: { todo: TodoDto; onClose: () => void }) {
+function EditorForm({ todo, listId, onClose }: Omit<Props, 'open'>) {
   const [title, setTitle] = useState(todo.title)
   const [notes, setNotes] = useState(todo.notes ?? '')
-  const update = useUpdate()
+  const update = useUpdate(listId)
 
   // The API would turn it down anyway; this saves the round trip and the toast. A disabled Save also stops Enter from
   // submitting the form.
