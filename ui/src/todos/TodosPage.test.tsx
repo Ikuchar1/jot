@@ -813,7 +813,13 @@ test("tapping a todo's title opens the editor with its title and notes filled in
   server.use(
     http.get(todosUrl, () =>
       HttpResponse.json([
-        { id: '0199a5b2-0000-7000-8000-000000000001', title: 'History essay', done: false, notes: 'Chapter 4 to 6' },
+        {
+          id: '0199a5b2-0000-7000-8000-000000000001',
+          title: 'History essay',
+          done: false,
+          notes: 'Chapter 4 to 6',
+          listId: inbox.id,
+        },
       ]),
     ),
   )
@@ -831,7 +837,9 @@ test('saving an edit closes the editor, shows the new title right away, and save
   const sent: { id: string; body: UpdateTodoRequest }[] = []
   server.use(
     http.get(todosUrl, () =>
-      HttpResponse.json([{ id: '0199a5b2-0000-7000-8000-000000000001', title: 'Essay', done: false, notes: null }]),
+      HttpResponse.json([
+        { id: '0199a5b2-0000-7000-8000-000000000001', title: 'Essay', done: false, notes: null, listId: inbox.id },
+      ]),
     ),
     // The API never answers, so the new title can only show because the UI changed it optimistically
     http.put(`${todosUrl}/:id`, async ({ params, request }) => {
@@ -853,7 +861,10 @@ test('saving an edit closes the editor, shows the new title right away, and save
   expect(screen.getAllByRole('listitem').map((item) => item.textContent)).toEqual(['History essay'])
   await waitFor(() =>
     expect(sent).toEqual([
-      { id: '0199a5b2-0000-7000-8000-000000000001', body: { title: 'History essay', notes: 'Due Friday' } },
+      {
+        id: '0199a5b2-0000-7000-8000-000000000001',
+        body: { title: 'History essay', notes: 'Due Friday', listId: inbox.id },
+      },
     ]),
   )
 })
@@ -863,7 +874,13 @@ test('clearing the notes and saving saves the todo with no notes', async () => {
   server.use(
     http.get(todosUrl, () =>
       HttpResponse.json([
-        { id: '0199a5b2-0000-7000-8000-000000000001', title: 'Essay', done: false, notes: 'Due Friday' },
+        {
+          id: '0199a5b2-0000-7000-8000-000000000001',
+          title: 'Essay',
+          done: false,
+          notes: 'Due Friday',
+          listId: inbox.id,
+        },
       ]),
     ),
     http.put(`${todosUrl}/:id`, async ({ request }) => {
@@ -879,14 +896,16 @@ test('clearing the notes and saving saves the todo with no notes', async () => {
   await user.clear(within(editor).getByRole('textbox', { name: 'Notes' }))
   await user.click(within(editor).getByRole('button', { name: 'Save' }))
 
-  await waitFor(() => expect(sent).toEqual([{ title: 'Essay', notes: null }]))
+  await waitFor(() => expect(sent).toEqual([{ title: 'Essay', notes: null, listId: inbox.id }]))
 })
 
 test("Save is disabled while the editor's title is blank, so a blank title can't be saved", async () => {
   const sent: UpdateTodoRequest[] = []
   server.use(
     http.get(todosUrl, () =>
-      HttpResponse.json([{ id: '0199a5b2-0000-7000-8000-000000000001', title: 'Essay', done: false, notes: null }]),
+      HttpResponse.json([
+        { id: '0199a5b2-0000-7000-8000-000000000001', title: 'Essay', done: false, notes: null, listId: inbox.id },
+      ]),
     ),
     http.put(`${todosUrl}/:id`, async ({ request }) => {
       sent.push((await request.json()) as UpdateTodoRequest)
@@ -913,7 +932,9 @@ test('Cancel closes the editor without saving', async () => {
   // No PUT handler: a save would fail the test
   server.use(
     http.get(todosUrl, () =>
-      HttpResponse.json([{ id: '0199a5b2-0000-7000-8000-000000000001', title: 'Essay', done: false, notes: null }]),
+      HttpResponse.json([
+        { id: '0199a5b2-0000-7000-8000-000000000001', title: 'Essay', done: false, notes: null, listId: inbox.id },
+      ]),
     ),
   )
   const user = userEvent.setup()
@@ -932,8 +953,8 @@ test("tapping a todo's checkbox or delete button doesn't open the editor", async
   server.use(
     http.get(todosUrl, () =>
       HttpResponse.json([
-        { id: '0199a5b2-0000-7000-8000-000000000001', title: 'Essay', done: false, notes: null },
-        { id: '0199a5b2-0000-7000-8000-000000000002', title: 'Lab report', done: false, notes: null },
+        { id: '0199a5b2-0000-7000-8000-000000000001', title: 'Essay', done: false, notes: null, listId: inbox.id },
+        { id: '0199a5b2-0000-7000-8000-000000000002', title: 'Lab report', done: false, notes: null, listId: inbox.id },
       ]),
     ),
     http.put(`${todosUrl}/:id/done`, () => delay('infinite')),
@@ -966,7 +987,9 @@ test('an edit that fails to save puts back the todo as it was', async () => {
     http.get(
       todosUrl,
       () =>
-        HttpResponse.json([{ id: '0199a5b2-0000-7000-8000-000000000001', title: 'Essay', done: false, notes: null }]),
+        HttpResponse.json([
+          { id: '0199a5b2-0000-7000-8000-000000000001', title: 'Essay', done: false, notes: null, listId: inbox.id },
+        ]),
       { once: true },
     ),
     // Offline, say: the reload after the save fails too, so only the UI can put the old title back
@@ -990,12 +1013,50 @@ test('an edit that fails to save puts back the todo as it was', async () => {
   await waitFor(() => expect(screen.getAllByRole('listitem').map((item) => item.textContent)).toEqual(['Essay']))
 })
 
+test("picking another list in the editor moves the todo there, off this list's page right away", async () => {
+  const sent: UpdateTodoRequest[] = []
+  server.use(
+    http.get(listsUrl, () => HttpResponse.json([inbox, work])),
+    http.get(todosUrl, () =>
+      HttpResponse.json([
+        { id: '0199a5b2-0000-7000-8000-000000000001', title: 'Essay', done: false, notes: null, listId: inbox.id },
+        { id: '0199a5b2-0000-7000-8000-000000000002', title: 'Buy milk', done: false, notes: null, listId: inbox.id },
+      ]),
+    ),
+    // The API never answers, so the todo can only leave because the UI moved it optimistically
+    http.put(`${todosUrl}/:id`, async ({ request }) => {
+      sent.push((await request.json()) as UpdateTodoRequest)
+      return delay('infinite')
+    }),
+  )
+  const user = userEvent.setup()
+  renderWithProviders(<TodosPage listId={inbox.id} />)
+
+  await user.click(await screen.findByRole('button', { name: 'Essay' }))
+  const editor = await screen.findByRole('dialog', { name: 'Edit todo' })
+  const picker = within(editor).getByRole('combobox', { name: 'List' })
+  expect(picker).toHaveTextContent('Inbox')
+  await user.click(picker)
+  await user.click(await screen.findByRole('option', { name: 'Work' }))
+  await user.click(within(editor).getByRole('button', { name: 'Save' }))
+
+  await waitFor(() => expect(screen.queryByText('Essay')).not.toBeInTheDocument())
+  expect(screen.getByText('Buy milk')).toBeInTheDocument()
+  await waitFor(() => expect(sent).toEqual([{ title: 'Essay', notes: null, listId: work.id }]))
+})
+
 test('a todo in Done can be opened and edited too', async () => {
   const sent: UpdateTodoRequest[] = []
   server.use(
     http.get(todosUrl, () =>
       HttpResponse.json([
-        { id: '0199a5b2-0000-7000-8000-000000000001', title: 'Essay', done: true, notes: 'Handed in' },
+        {
+          id: '0199a5b2-0000-7000-8000-000000000001',
+          title: 'Essay',
+          done: true,
+          notes: 'Handed in',
+          listId: inbox.id,
+        },
       ]),
     ),
     http.put(`${todosUrl}/:id`, async ({ request }) => {
@@ -1014,5 +1075,5 @@ test('a todo in Done can be opened and edited too', async () => {
   await user.click(within(editor).getByRole('button', { name: 'Save' }))
 
   expect(await screen.findByRole('checkbox', { name: 'Essay (history)' })).toBeChecked()
-  await waitFor(() => expect(sent).toEqual([{ title: 'Essay (history)', notes: 'Handed in' }]))
+  await waitFor(() => expect(sent).toEqual([{ title: 'Essay (history)', notes: 'Handed in', listId: inbox.id }]))
 })
