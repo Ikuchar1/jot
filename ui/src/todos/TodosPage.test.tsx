@@ -794,3 +794,54 @@ test('saving an edit closes the editor, shows the new title right away, and save
     ]),
   )
 })
+
+test('clearing the notes and saving saves the todo with no notes', async () => {
+  const sent: UpdateTodoRequest[] = []
+  server.use(
+    http.get(todosUrl, () =>
+      HttpResponse.json([
+        { id: '0199a5b2-0000-7000-8000-000000000001', title: 'Essay', done: false, notes: 'Due Friday' },
+      ]),
+    ),
+    http.put(`${todosUrl}/:id`, async ({ request }) => {
+      sent.push((await request.json()) as UpdateTodoRequest)
+      return delay('infinite')
+    }),
+  )
+  const user = userEvent.setup()
+  renderWithProviders(<TodosPage />)
+
+  await user.click(await screen.findByRole('button', { name: 'Essay' }))
+  const editor = await screen.findByRole('dialog', { name: 'Edit todo' })
+  await user.clear(within(editor).getByRole('textbox', { name: 'Notes' }))
+  await user.click(within(editor).getByRole('button', { name: 'Save' }))
+
+  await waitFor(() => expect(sent).toEqual([{ title: 'Essay', notes: null }]))
+})
+
+test("Save is disabled while the editor's title is blank, so a blank title can't be saved", async () => {
+  const sent: UpdateTodoRequest[] = []
+  server.use(
+    http.get(todosUrl, () =>
+      HttpResponse.json([{ id: '0199a5b2-0000-7000-8000-000000000001', title: 'Essay', done: false, notes: null }]),
+    ),
+    http.put(`${todosUrl}/:id`, async ({ request }) => {
+      sent.push((await request.json()) as UpdateTodoRequest)
+      return delay('infinite')
+    }),
+  )
+  const user = userEvent.setup()
+  renderWithProviders(<TodosPage />)
+
+  await user.click(await screen.findByRole('button', { name: 'Essay' }))
+  const editor = await screen.findByRole('dialog', { name: 'Edit todo' })
+  const title = within(editor).getByRole('textbox', { name: 'Title' })
+  await user.clear(title)
+  expect(within(editor).getByRole('button', { name: 'Save' })).toBeDisabled()
+  await user.type(title, '   {Enter}')
+
+  expect(within(editor).getByRole('button', { name: 'Save' })).toBeDisabled()
+  expect(screen.getByRole('dialog', { name: 'Edit todo' })).toBeInTheDocument()
+  // Give a request that shouldn't have been sent time to arrive
+  await expect(waitFor(() => expect(sent).not.toEqual([]), { timeout: 300 })).rejects.toThrow()
+})

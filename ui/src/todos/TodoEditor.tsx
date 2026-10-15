@@ -32,9 +32,14 @@ function EditorForm({ todo, onClose }: { todo: TodoDto; onClose: () => void }) {
   const [notes, setNotes] = useState(todo.notes ?? '')
   const update = useUpdate()
 
+  // The API would turn it down anyway; this saves the round trip and the toast. A disabled Save also stops Enter from
+  // submitting the form.
+  const canSave = title.trim() !== ''
+
   function handleSubmit(event: FormEvent) {
     event.preventDefault()
-    update(todo.id, { title, notes })
+    // An emptied notes box means no notes, which the list's cache should hold as null too, like the API does
+    update(todo.id, { title, notes: notes.trim() ? notes : null })
     // The list shows the edit right away, so there's nothing to wait for
     onClose()
   }
@@ -62,7 +67,9 @@ function EditorForm({ todo, onClose }: { todo: TodoDto; onClose: () => void }) {
         />
       </DialogContent>
       <DialogActions>
-        <Button type="submit">Save</Button>
+        <Button type="submit" disabled={!canSave}>
+          Save
+        </Button>
       </DialogActions>
     </form>
   )
