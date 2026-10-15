@@ -179,7 +179,9 @@ test('a check that saves while a quick-add is still saving keeps the new todo', 
 })
 
 test('a quick-add that saves while a check is still saving keeps the todo in Done', async () => {
-  const saved: TodoDto[] = [{ id: '0199a5b2-0000-7000-8000-000000000001', title: 'Call the dentist', done: false, notes: null }]
+  const saved: TodoDto[] = [
+    { id: '0199a5b2-0000-7000-8000-000000000001', title: 'Call the dentist', done: false, notes: null },
+  ]
   server.use(
     http.get(todosUrl, () => HttpResponse.json(saved)),
     http.post(todosUrl, async ({ request }) => {
@@ -733,7 +735,10 @@ test('after a quick-add saves, the list catches up with the API', async () => {
       const { id, title } = (await request.json()) as AddTodoRequest
       const todo = { id: id!, title, done: false, notes: null }
       // Meanwhile another caller (Siri, say) added one too
-      saved.push({ id: '0199a5b2-0000-7000-8000-000000000001', title: 'Call the dentist', done: false, notes: null }, todo)
+      saved.push(
+        { id: '0199a5b2-0000-7000-8000-000000000001', title: 'Call the dentist', done: false, notes: null },
+        todo,
+      )
       return HttpResponse.json(todo, { status: 201 })
     }),
   )
@@ -925,4 +930,31 @@ test('an edit that fails to save puts back the todo as it was', async () => {
 
   expect(await screen.findByText("Can't reach Jot. Check your connection and try again.")).toBeInTheDocument()
   await waitFor(() => expect(screen.getAllByRole('listitem').map((item) => item.textContent)).toEqual(['Essay']))
+})
+
+test('a todo in Done can be opened and edited too', async () => {
+  const sent: UpdateTodoRequest[] = []
+  server.use(
+    http.get(todosUrl, () =>
+      HttpResponse.json([
+        { id: '0199a5b2-0000-7000-8000-000000000001', title: 'Essay', done: true, notes: 'Handed in' },
+      ]),
+    ),
+    http.put(`${todosUrl}/:id`, async ({ request }) => {
+      sent.push((await request.json()) as UpdateTodoRequest)
+      return delay('infinite')
+    }),
+  )
+  const user = userEvent.setup()
+  renderWithProviders(<TodosPage />)
+
+  await user.click(await screen.findByRole('button', { name: 'Done (1)' }))
+  await user.click(await screen.findByRole('button', { name: 'Essay' }))
+  const editor = await screen.findByRole('dialog', { name: 'Edit todo' })
+  expect(within(editor).getByRole('textbox', { name: 'Notes' })).toHaveValue('Handed in')
+  await user.type(within(editor).getByRole('textbox', { name: 'Title' }), ' (history)')
+  await user.click(within(editor).getByRole('button', { name: 'Save' }))
+
+  expect(await screen.findByRole('checkbox', { name: 'Essay (history)' })).toBeChecked()
+  await waitFor(() => expect(sent).toEqual([{ title: 'Essay (history)', notes: 'Handed in' }]))
 })
