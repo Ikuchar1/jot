@@ -77,7 +77,7 @@ Nothing to click (docs, CI, tooling): say how to see it working instead, e.g. "t
 If a later commit changes the behavior, update the steps.
 -->
 **Setup**
-1. `cd .claude/worktrees/<name>`, then empty the slot's database: `docker compose up -d --wait && docker compose exec db dropdb -U jot --force --if-exists jot_<slot>`
+1. In `.claude/worktrees/<name>`, empty the slot's database, running each command on its own (not chained with `&&`): `docker compose up -d --wait`, then `docker compose exec db dropdb -U jot --force --if-exists jot_<slot>`
 2. `./dev.sh <slot>` recreates and migrates it: UI at http://localhost:<5173 + slot>, Scalar at http://localhost:<5080 + slot>/scalar, TablePlus at `localhost:5433`, database `jot_<slot>`
 3. Data to create first
 
