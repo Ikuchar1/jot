@@ -1,11 +1,14 @@
+import Button from '@mui/material/Button'
 import Dialog from '@mui/material/Dialog'
+import DialogActions from '@mui/material/DialogActions'
 import DialogContent from '@mui/material/DialogContent'
 import DialogTitle from '@mui/material/DialogTitle'
 import TextField from '@mui/material/TextField'
 import { useTheme } from '@mui/material/styles'
 import useMediaQuery from '@mui/material/useMediaQuery'
-import { useId, useState } from 'react'
+import { useId, useState, type FormEvent } from 'react'
 import type { TodoDto } from '../api/generated/model'
+import { useUpdate } from './useUpdate'
 
 type Props = { todo: TodoDto; open: boolean; onClose: () => void }
 
@@ -19,34 +22,48 @@ export default function TodoEditor({ todo, open, onClose }: Props) {
     <Dialog open={open} onClose={onClose} fullScreen={fullScreen} fullWidth aria-labelledby={titleId}>
       <DialogTitle id={titleId}>Edit todo</DialogTitle>
       {/* The dialog unmounts its contents once closed, so each opening starts from the todo as it is now */}
-      <EditorForm todo={todo} />
+      <EditorForm todo={todo} onClose={onClose} />
     </Dialog>
   )
 }
 
-function EditorForm({ todo }: { todo: TodoDto }) {
+function EditorForm({ todo, onClose }: { todo: TodoDto; onClose: () => void }) {
   const [title, setTitle] = useState(todo.title)
   const [notes, setNotes] = useState(todo.notes ?? '')
+  const update = useUpdate()
+
+  function handleSubmit(event: FormEvent) {
+    event.preventDefault()
+    update(todo.id, { title, notes })
+    // The list shows the edit right away, so there's nothing to wait for
+    onClose()
+  }
 
   return (
-    <DialogContent>
-      <TextField
-        label="Title"
-        value={title}
-        onChange={(event) => setTitle(event.target.value)}
-        autoComplete="off"
-        fullWidth
-        margin="dense"
-      />
-      <TextField
-        label="Notes"
-        value={notes}
-        onChange={(event) => setNotes(event.target.value)}
-        multiline
-        minRows={3}
-        fullWidth
-        margin="dense"
-      />
-    </DialogContent>
+    // A form so Enter in the title saves
+    <form onSubmit={handleSubmit}>
+      <DialogContent>
+        <TextField
+          label="Title"
+          value={title}
+          onChange={(event) => setTitle(event.target.value)}
+          autoComplete="off"
+          fullWidth
+          margin="dense"
+        />
+        <TextField
+          label="Notes"
+          value={notes}
+          onChange={(event) => setNotes(event.target.value)}
+          multiline
+          minRows={3}
+          fullWidth
+          margin="dense"
+        />
+      </DialogContent>
+      <DialogActions>
+        <Button type="submit">Save</Button>
+      </DialogActions>
+    </form>
   )
 }

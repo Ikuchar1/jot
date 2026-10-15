@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { delay, http, HttpResponse } from 'msw'
 import { version } from 'uuid'
 import { afterEach, expect, test, vi } from 'vitest'
-import type { AddTodoRequest, SetTodoDoneRequest, TodoDto } from '../api/generated/model'
+import type { AddTodoRequest, SetTodoDoneRequest, TodoDto, UpdateTodoRequest } from '../api/generated/model'
 import { renderWithProviders } from '../test/render'
 import { server } from '../test/server'
 import TodosPage from './TodosPage'
@@ -762,4 +762,35 @@ test("tapping a todo's title opens the editor with its title and notes filled in
   const editor = await screen.findByRole('dialog', { name: 'Edit todo' })
   expect(within(editor).getByRole('textbox', { name: 'Title' })).toHaveValue('History essay')
   expect(within(editor).getByRole('textbox', { name: 'Notes' })).toHaveValue('Chapter 4 to 6')
+})
+
+test('saving an edit closes the editor, shows the new title right away, and saves the title and notes', async () => {
+  const sent: { id: string; body: UpdateTodoRequest }[] = []
+  server.use(
+    http.get(todosUrl, () =>
+      HttpResponse.json([{ id: '0199a5b2-0000-7000-8000-000000000001', title: 'Essay', done: false, notes: null }]),
+    ),
+    // The API never answers, so the new title can only show because the UI changed it optimistically
+    http.put(`${todosUrl}/:id`, async ({ params, request }) => {
+      sent.push({ id: params.id as string, body: (await request.json()) as UpdateTodoRequest })
+      return delay('infinite')
+    }),
+  )
+  const user = userEvent.setup()
+  renderWithProviders(<TodosPage />)
+
+  await user.click(await screen.findByRole('button', { name: 'Essay' }))
+  const editor = await screen.findByRole('dialog', { name: 'Edit todo' })
+  await user.clear(within(editor).getByRole('textbox', { name: 'Title' }))
+  await user.type(within(editor).getByRole('textbox', { name: 'Title' }), 'History essay')
+  await user.type(within(editor).getByRole('textbox', { name: 'Notes' }), 'Due Friday')
+  await user.click(within(editor).getByRole('button', { name: 'Save' }))
+
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Edit todo' })).not.toBeInTheDocument())
+  expect(screen.getAllByRole('listitem').map((item) => item.textContent)).toEqual(['History essay'])
+  await waitFor(() =>
+    expect(sent).toEqual([
+      { id: '0199a5b2-0000-7000-8000-000000000001', body: { title: 'History essay', notes: 'Due Friday' } },
+    ]),
+  )
 })
