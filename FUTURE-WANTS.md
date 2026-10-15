@@ -8,3 +8,4 @@ Features deliberately left out of v1, to revisit in a later phase.
 - **Playwright end-to-end tests** — a script drives a real browser to click through the app. For local development, not the CI pipeline.
 - **Drag-to-reorder todos** — manual ordering within a list. v1 sorts automatically by due date.
 - **Google Calendar integration** — e.g. weekly reminders showing up on my calendar. Direction (todos → calendar, calendar → todos, or two-way) still undecided. Until then, Claude can bridge the Jot MCP server and the Google Calendar connector.
+- **Purge deleted todos** — deleting a todo only stamps `DeletedAt` (a soft delete, so Undo can bring it back), so deleted rows stay in the database for good. Later: a scheduled job that removes todos deleted more than, say, 30 days ago.

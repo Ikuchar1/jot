@@ -10,4 +10,7 @@ public class Todo
 
     // When it was checked off; null while it isn't done
     public DateTime? CompletedAt { get; set; }
+
+    // When it was deleted; null while it isn't. Kept so Undo can bring it back as it was (see JotDbContext)
+    public DateTime? DeletedAt { get; set; }
 }

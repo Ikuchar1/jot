@@ -1,14 +1,18 @@
-import { screen, waitFor, waitForElementToBeRemoved } from '@testing-library/react'
+import { act, screen, waitFor, waitForElementToBeRemoved } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { delay, http, HttpResponse } from 'msw'
 import { version } from 'uuid'
-import { expect, test } from 'vitest'
+import { afterEach, expect, test, vi } from 'vitest'
 import type { AddTodoRequest, SetTodoDoneRequest, TodoDto } from '../api/generated/model'
 import { renderWithProviders } from '../test/render'
 import { server } from '../test/server'
 import TodosPage from './TodosPage'
 
 const todosUrl = 'http://api.test/api/todos'
+
+afterEach(() => {
+  vi.useRealTimers()
+})
 
 test('shows the saved todos', async () => {
   server.use(
@@ -198,6 +202,327 @@ test('a quick-add that saves while a check is still saving keeps the todo in Don
   await expect(
     waitFor(() => expect(screen.queryByRole('button', { name: /^Done/ })).not.toBeInTheDocument(), { timeout: 500 }),
   ).rejects.toThrow()
+})
+
+test('deleting a todo takes it off the page right away and deletes it', async () => {
+  const deleted: string[] = []
+  server.use(
+    http.get(todosUrl, () =>
+      HttpResponse.json([
+        { id: '0199a5b2-0000-7000-8000-000000000001', title: 'Buy milk', done: false },
+        { id: '0199a5b2-0000-7000-8000-000000000002', title: 'Call the dentist', done: false },
+      ]),
+    ),
+    // The API never answers, so the todo can only go because the UI took it off optimistically
+    http.delete(`${todosUrl}/:id`, ({ params }) => {
+      deleted.push(params.id as string)
+      return delay('infinite')
+    }),
+  )
+  const user = userEvent.setup()
+  renderWithProviders(<TodosPage />)
+
+  await user.click(await screen.findByRole('button', { name: 'Delete Buy milk' }))
+
+  expect(screen.queryByText('Buy milk')).not.toBeInTheDocument()
+  expect(screen.getByText('Call the dentist')).toBeInTheDocument()
+  await waitFor(() => expect(deleted).toEqual(['0199a5b2-0000-7000-8000-000000000001']))
+})
+
+test('deleting a todo shows a Deleted toast with Undo that closes after about 5 seconds', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true })
+  server.use(
+    http.get(todosUrl, () =>
+      HttpResponse.json([{ id: '0199a5b2-0000-7000-8000-000000000001', title: 'Buy milk', done: false }]),
+    ),
+    http.delete(`${todosUrl}/:id`, () => new HttpResponse(null, { status: 204 })),
+  )
+  const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+  renderWithProviders(<TodosPage />)
+
+  await user.click(await screen.findByRole('button', { name: 'Delete Buy milk' }))
+
+  expect(await screen.findByText('Deleted')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Undo' })).toBeInTheDocument()
+  await act(() => vi.advanceTimersByTimeAsync(4_500))
+  expect(screen.getByText('Deleted')).toBeInTheDocument()
+  // Past 5 seconds, and its animation out
+  await act(() => vi.advanceTimersByTimeAsync(1_000))
+  await act(() => vi.advanceTimersByTimeAsync(1_000))
+  expect(screen.queryByText('Deleted')).not.toBeInTheDocument()
+})
+
+test('Undo puts the deleted todo back in its place right away, restores it, and closes the toast', async () => {
+  const buyMilk = { id: '0199a5b2-0000-7000-8000-000000000001', title: 'Buy milk', done: false }
+  const callTheDentist = { id: '0199a5b2-0000-7000-8000-000000000002', title: 'Call the dentist', done: false }
+  const payRent = { id: '0199a5b2-0000-7000-8000-000000000003', title: 'Pay rent', done: false }
+  const restored: string[] = []
+  server.use(
+    http.get(todosUrl, () => HttpResponse.json([buyMilk, callTheDentist, payRent]), { once: true }),
+    // After the delete saves, the reload comes back without it
+    http.get(todosUrl, () => HttpResponse.json([buyMilk, payRent])),
+    http.delete(`${todosUrl}/:id`, () => new HttpResponse(null, { status: 204 })),
+    // The API never answers, so the todo can only come back because the UI put it back optimistically
+    http.post(`${todosUrl}/:id/restore`, ({ params }) => {
+      restored.push(params.id as string)
+      return delay('infinite')
+    }),
+  )
+  const user = userEvent.setup()
+  renderWithProviders(<TodosPage />)
+
+  await user.click(await screen.findByRole('button', { name: 'Delete Call the dentist' }))
+  await waitFor(() =>
+    expect(screen.getAllByRole('listitem').map((item) => item.textContent)).toEqual(['Buy milk', 'Pay rent']),
+  )
+  await user.click(screen.getByRole('button', { name: 'Undo' }))
+
+  expect(screen.getAllByRole('listitem').map((item) => item.textContent)).toEqual([
+    'Buy milk',
+    'Call the dentist',
+    'Pay rent',
+  ])
+  await waitFor(() => expect(restored).toEqual(['0199a5b2-0000-7000-8000-000000000002']))
+  await waitFor(() => expect(screen.queryByText('Deleted')).not.toBeInTheDocument())
+})
+
+test('a done todo deleted from Done goes right away, and Undo puts it back in Done', async () => {
+  const deleted: string[] = []
+  const restored: string[] = []
+  let saveTheDelete!: () => void
+  const deleteSaves = new Promise<void>((resolve) => (saveTheDelete = resolve))
+  const buyMilk = { id: '0199a5b2-0000-7000-8000-000000000001', title: 'Buy milk', done: false }
+  server.use(
+    http.get(
+      todosUrl,
+      () =>
+        HttpResponse.json([
+          buyMilk,
+          { id: '0199a5b2-0000-7000-8000-000000000002', title: 'Call the dentist', done: true },
+        ]),
+      { once: true },
+    ),
+    // After the delete saves, a reload comes back without it
+    http.get(todosUrl, () => HttpResponse.json([buyMilk])),
+    // The delete answers only once the test lets it, and the restore never does, so only the UI moves the todo
+    http.delete(`${todosUrl}/:id`, async ({ params }) => {
+      deleted.push(params.id as string)
+      await deleteSaves
+      return new HttpResponse(null, { status: 204 })
+    }),
+    http.post(`${todosUrl}/:id/restore`, ({ params }) => {
+      restored.push(params.id as string)
+      return delay('infinite')
+    }),
+  )
+  const user = userEvent.setup()
+  renderWithProviders(<TodosPage />)
+
+  await user.click(await screen.findByRole('button', { name: 'Done (1)' }))
+  await user.click(await screen.findByRole('button', { name: 'Delete Call the dentist' }))
+
+  expect(screen.queryByText('Call the dentist')).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: /^Done/ })).not.toBeInTheDocument()
+  await waitFor(() => expect(deleted).toEqual(['0199a5b2-0000-7000-8000-000000000002']))
+  saveTheDelete()
+
+  await user.click(screen.getByRole('button', { name: 'Undo' }))
+  await user.click(await screen.findByRole('button', { name: 'Done (1)' }))
+
+  expect(await screen.findByRole('checkbox', { name: 'Call the dentist' })).toBeChecked()
+  await waitFor(() => expect(restored).toEqual(['0199a5b2-0000-7000-8000-000000000002']))
+})
+
+test('a delete that fails to save puts back only its own todo, in its place', async () => {
+  let failTheSave!: () => void
+  const saveFails = new Promise<void>((resolve) => (failTheSave = resolve))
+  server.use(
+    http.get(todosUrl, () =>
+      HttpResponse.json([
+        { id: '0199a5b2-0000-7000-8000-000000000001', title: 'Buy milk', done: false },
+        { id: '0199a5b2-0000-7000-8000-000000000002', title: 'Call the dentist', done: false },
+        { id: '0199a5b2-0000-7000-8000-000000000003', title: 'Pay rent', done: false },
+      ]),
+    ),
+    http.delete(`${todosUrl}/:id`, async ({ params }) => {
+      // Pay rent's delete is still saving when Buy milk's fails
+      if (params.id === '0199a5b2-0000-7000-8000-000000000003') return delay('infinite')
+      await saveFails
+      return HttpResponse.error()
+    }),
+  )
+  const user = userEvent.setup()
+  renderWithProviders(<TodosPage />)
+
+  await user.click(await screen.findByRole('button', { name: 'Delete Buy milk' }))
+  await user.click(screen.getByRole('button', { name: 'Delete Pay rent' }))
+  failTheSave()
+
+  expect(await screen.findByText("Can't reach Jot. Check your connection and try again.")).toBeInTheDocument()
+  await waitFor(() =>
+    expect(screen.getAllByRole('listitem').map((item) => item.textContent)).toEqual(['Buy milk', 'Call the dentist']),
+  )
+})
+
+test('a delete that fails to save closes its Deleted toast, since there is nothing to undo', async () => {
+  server.use(
+    http.get(todosUrl, () =>
+      HttpResponse.json([{ id: '0199a5b2-0000-7000-8000-000000000001', title: 'Buy milk', done: false }]),
+    ),
+    http.delete(`${todosUrl}/:id`, () => HttpResponse.error()),
+  )
+  const user = userEvent.setup()
+  renderWithProviders(<TodosPage />)
+
+  await user.click(await screen.findByRole('button', { name: 'Delete Buy milk' }))
+
+  expect(await screen.findByText("Can't reach Jot. Check your connection and try again.")).toBeInTheDocument()
+  await waitFor(() => expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument())
+  expect(screen.getByText('Buy milk')).toBeInTheDocument()
+})
+
+test('a delete that fails after its Undo was tapped shows the todo once', async () => {
+  const buyMilk = { id: '0199a5b2-0000-7000-8000-000000000001', title: 'Buy milk', done: false }
+  const callTheDentist = { id: '0199a5b2-0000-7000-8000-000000000002', title: 'Call the dentist', done: false }
+  let failTheDelete!: () => void
+  const deleteFails = new Promise<void>((resolve) => (failTheDelete = resolve))
+  // The restore stays saving, so no reload can tidy the list up and only the UI decides what shows
+  let saveTheRestore!: () => void
+  const restoreSaves = new Promise<void>((resolve) => (saveTheRestore = resolve))
+  server.use(
+    http.get(todosUrl, () => HttpResponse.json([buyMilk, callTheDentist])),
+    http.delete(`${todosUrl}/:id`, async () => {
+      await deleteFails
+      return HttpResponse.error()
+    }),
+    http.post(`${todosUrl}/:id/restore`, async () => {
+      await restoreSaves
+      return HttpResponse.json(callTheDentist)
+    }),
+  )
+  const consoleError = vi.spyOn(console, 'error')
+  const user = userEvent.setup()
+  renderWithProviders(<TodosPage />)
+
+  await user.click(await screen.findByRole('button', { name: 'Delete Call the dentist' }))
+  await user.click(screen.getByRole('button', { name: 'Undo' }))
+  failTheDelete()
+
+  expect(await screen.findByText("Can't reach Jot. Check your connection and try again.")).toBeInTheDocument()
+  expect(consoleError.mock.calls.flat().join(' ')).not.toContain('same key')
+  expect(screen.getAllByRole('listitem').map((item) => item.textContent)).toEqual(['Buy milk', 'Call the dentist'])
+  consoleError.mockRestore()
+  saveTheRestore()
+})
+
+test('Undo tapped while the delete is still saving leaves the todo restored', async () => {
+  const buyMilk = { id: '0199a5b2-0000-7000-8000-000000000001', title: 'Buy milk', done: false }
+  const callTheDentist = { id: '0199a5b2-0000-7000-8000-000000000002', title: 'Call the dentist', done: false }
+  // A fake API that applies each request when it arrives
+  let deleted = false
+  let applied = 0
+  let reloadsAfterBoth = 0
+  let restoreArrived!: () => void
+  const restoreHasArrived = new Promise<void>((resolve) => (restoreArrived = resolve))
+  server.use(
+    http.get(todosUrl, () => {
+      if (applied === 2) reloadsAfterBoth++
+      return HttpResponse.json(deleted ? [buyMilk] : [buyMilk, callTheDentist])
+    }),
+    // A slow delete: it lands after the restore if the restore is sent without waiting for it
+    http.delete(`${todosUrl}/:id`, async () => {
+      await Promise.race([restoreHasArrived, delay(300)])
+      deleted = true
+      applied++
+      return new HttpResponse(null, { status: 204 })
+    }),
+    http.post(`${todosUrl}/:id/restore`, () => {
+      restoreArrived()
+      deleted = false
+      applied++
+      return HttpResponse.json(callTheDentist)
+    }),
+  )
+  const user = userEvent.setup()
+  renderWithProviders(<TodosPage />)
+
+  await user.click(await screen.findByRole('button', { name: 'Delete Call the dentist' }))
+  await user.click(screen.getByRole('button', { name: 'Undo' }))
+
+  // Once both have saved, the page shows what the API ended up with
+  await waitFor(() => expect(reloadsAfterBoth).toBeGreaterThan(0), { timeout: 2000 })
+  await waitFor(() =>
+    expect(screen.getAllByRole('listitem').map((item) => item.textContent)).toEqual(['Buy milk', 'Call the dentist']),
+  )
+})
+
+test('deleting a todo again after its Undo, while the first delete is still saving, leaves it deleted', async () => {
+  const buyMilk = { id: '0199a5b2-0000-7000-8000-000000000001', title: 'Buy milk', done: false }
+  const callTheDentist = { id: '0199a5b2-0000-7000-8000-000000000002', title: 'Call the dentist', done: false }
+  // A fake API that applies each request when it arrives
+  let deleted = false
+  const applied: string[] = []
+  let firstDelete = true
+  let saveTheFirstDelete!: () => void
+  const firstDeleteSaves = new Promise<void>((resolve) => (saveTheFirstDelete = resolve))
+  server.use(
+    http.get(todosUrl, () => HttpResponse.json(deleted ? [buyMilk] : [buyMilk, callTheDentist])),
+    http.delete(`${todosUrl}/:id`, async () => {
+      if (firstDelete) {
+        firstDelete = false
+        await firstDeleteSaves
+      }
+      deleted = true
+      applied.push('delete')
+      return new HttpResponse(null, { status: 204 })
+    }),
+    http.post(`${todosUrl}/:id/restore`, () => {
+      deleted = false
+      applied.push('restore')
+      return HttpResponse.json(callTheDentist)
+    }),
+  )
+  const user = userEvent.setup()
+  renderWithProviders(<TodosPage />)
+
+  await user.click(await screen.findByRole('button', { name: 'Delete Call the dentist' }))
+  await user.click(screen.getByRole('button', { name: 'Undo' }))
+  await user.click(await screen.findByRole('button', { name: 'Delete Call the dentist' }))
+  saveTheFirstDelete()
+
+  // The API gets them in the order they were tapped, so the last one, the delete, wins
+  await waitFor(() => expect(applied).toEqual(['delete', 'restore', 'delete']), { timeout: 2000 })
+  expect(deleted).toBe(true)
+  await waitFor(() => expect(screen.getAllByRole('listitem').map((item) => item.textContent)).toEqual(['Buy milk']))
+})
+
+test('an Undo that fails to save takes the todo back out', async () => {
+  const buyMilk = { id: '0199a5b2-0000-7000-8000-000000000001', title: 'Buy milk', done: false }
+  const callTheDentist = { id: '0199a5b2-0000-7000-8000-000000000002', title: 'Call the dentist', done: false }
+  let failTheSave!: () => void
+  const saveFails = new Promise<void>((resolve) => (failTheSave = resolve))
+  server.use(
+    http.get(todosUrl, () => HttpResponse.json([buyMilk, callTheDentist]), { once: true }),
+    http.get(todosUrl, () => HttpResponse.json([buyMilk]), { once: true }),
+    // Offline, say: the reload after the Undo fails too, so only the UI can take the todo back out
+    http.get(todosUrl, () => HttpResponse.error()),
+    http.delete(`${todosUrl}/:id`, () => new HttpResponse(null, { status: 204 })),
+    http.post(`${todosUrl}/:id/restore`, async () => {
+      await saveFails
+      return HttpResponse.error()
+    }),
+  )
+  const user = userEvent.setup()
+  renderWithProviders(<TodosPage />)
+
+  await user.click(await screen.findByRole('button', { name: 'Delete Call the dentist' }))
+  await waitFor(() => expect(screen.getAllByRole('listitem').map((item) => item.textContent)).toEqual(['Buy milk']))
+  await user.click(screen.getByRole('button', { name: 'Undo' }))
+  const todo = await screen.findByText('Call the dentist')
+  failTheSave()
+
+  await waitForElementToBeRemoved(todo)
+  expect(screen.getByText('Buy milk')).toBeInTheDocument()
 })
 
 test('shows a spinner until the todos load', async () => {
