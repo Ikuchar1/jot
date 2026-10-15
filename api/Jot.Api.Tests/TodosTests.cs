@@ -399,6 +399,23 @@ public class TodosTests(JotApiFactory api)
         Assert.Contains(todos!, t => t.Id == id);
     }
 
+    // Undo on a List's page brings the todo back on that page, not in the Inbox
+    [Fact]
+    public async Task Restored_todo_comes_back_in_its_list()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var listId = await AddListAsync("Work", ct);
+        var id = Guid.CreateVersion7();
+        await _client.PostAsJsonAsync("/api/todos", new { id, title = "Quarterly review", listId }, ct);
+        await _client.DeleteAsync($"/api/todos/{id}", ct);
+
+        var response = await _client.PostAsync($"/api/todos/{id}/restore", null, ct);
+
+        var restored = new ListedTodoJson(id, "Quarterly review", Done: false, Notes: null, listId);
+        Assert.Equal(restored, await response.Content.ReadFromJsonAsync<ListedTodoJson>(ct));
+        Assert.Equal([restored], await _client.GetFromJsonAsync<List<ListedTodoJson>>($"/api/todos?listId={listId}", ct));
+    }
+
     // The database is shared by every test, so each list gets a name no other test uses
     private async Task<Guid> AddListAsync(string name, CancellationToken ct)
     {

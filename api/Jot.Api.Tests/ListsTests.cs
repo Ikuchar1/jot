@@ -81,6 +81,44 @@ public class ListsTests(JotApiFactory api)
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
+    [Fact]
+    public async Task Not_done_count_leaves_out_done_and_deleted_todos_and_follows_adds_completes_and_moves()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (school, work) = (await AddListAsync("School", ct), await AddListAsync("Work", ct));
+        var (essay, quiz, reading, lab) =
+            (Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7());
+        foreach (var id in new[] { essay, quiz, reading, lab })
+        {
+            await _client.PostAsJsonAsync("/api/todos", new { id, title = "Homework", listId = school }, ct);
+        }
+        Assert.Equal(4, await NotDoneCountAsync(school, ct));
+
+        await _client.PutAsJsonAsync($"/api/todos/{essay}/done", new { done = true }, ct);
+        Assert.Equal(3, await NotDoneCountAsync(school, ct));
+
+        await _client.DeleteAsync($"/api/todos/{quiz}", ct);
+        Assert.Equal(2, await NotDoneCountAsync(school, ct));
+
+        await _client.PutAsJsonAsync($"/api/todos/{reading}", new { title = "Homework", notes = (string?)null, listId = work }, ct);
+        Assert.Equal(1, await NotDoneCountAsync(school, ct));
+        Assert.Equal(1, await NotDoneCountAsync(work, ct));
+    }
+
+    private async Task<int> NotDoneCountAsync(Guid listId, CancellationToken ct)
+    {
+        var lists = await _client.GetFromJsonAsync<List<ListJson>>("/api/lists", ct);
+        return lists!.Single(l => l.Id == listId).NotDoneCount;
+    }
+
+    private async Task<Guid> AddListAsync(string name, CancellationToken ct)
+    {
+        var id = Guid.CreateVersion7();
+        var added = await _client.PostAsJsonAsync("/api/lists", new { id, name = UniqueName(name) }, ct);
+        Assert.Equal(HttpStatusCode.Created, added.StatusCode);
+        return id;
+    }
+
     // The database is shared by every test, so each list gets a name no other test uses
     private static string UniqueName(string name) => $"{name} {Guid.NewGuid():N}"[..20];
 
