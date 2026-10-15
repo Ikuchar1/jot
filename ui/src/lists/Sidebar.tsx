@@ -1,12 +1,16 @@
+import AddIcon from '@mui/icons-material/Add'
 import Box from '@mui/material/Box'
 import Drawer from '@mui/material/Drawer'
 import List from '@mui/material/List'
 import ListItemButton from '@mui/material/ListItemButton'
+import ListItemIcon from '@mui/material/ListItemIcon'
 import ListItemText from '@mui/material/ListItemText'
 import Toolbar from '@mui/material/Toolbar'
 import Typography from '@mui/material/Typography'
+import { useState } from 'react'
 import { NavLink, useMatch } from 'react-router'
 import { useListLists } from '../api/generated'
+import NewListDialog from './NewListDialog'
 
 export const sidebarWidth = 240
 
@@ -17,6 +21,7 @@ type Props = { phone: boolean; open: boolean; onClose: () => void }
 export default function Sidebar({ phone, open, onClose }: Props) {
   const { data: lists } = useListLists()
   const currentListId = useMatch('/lists/:listId')?.params.listId
+  const [creating, setCreating] = useState(false)
 
   return (
     <Box component="nav" aria-label="Lists" sx={{ width: { sm: sidebarWidth }, flexShrink: { sm: 0 } }}>
@@ -47,8 +52,15 @@ export default function Sidebar({ phone, open, onClose }: Props) {
               </Typography>
             </ListItemButton>
           ))}
+          <ListItemButton onClick={() => setCreating(true)}>
+            <ListItemIcon>
+              <AddIcon />
+            </ListItemIcon>
+            <ListItemText primary="New list" />
+          </ListItemButton>
         </List>
       </Drawer>
+      <NewListDialog open={creating} onClose={() => setCreating(false)} />
     </Box>
   )
 }
