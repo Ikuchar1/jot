@@ -1,4 +1,4 @@
-import { act, screen, waitFor, waitForElementToBeRemoved } from '@testing-library/react'
+import { act, screen, waitFor, waitForElementToBeRemoved, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { delay, http, HttpResponse } from 'msw'
 import { version } from 'uuid'
@@ -744,4 +744,22 @@ test('after a quick-add saves, the list catches up with the API', async () => {
 
   expect(await screen.findByText('Call the dentist')).toBeInTheDocument()
   expect(screen.getByText('Buy milk')).toBeInTheDocument()
+})
+
+test("tapping a todo's title opens the editor with its title and notes filled in", async () => {
+  server.use(
+    http.get(todosUrl, () =>
+      HttpResponse.json([
+        { id: '0199a5b2-0000-7000-8000-000000000001', title: 'History essay', done: false, notes: 'Chapter 4 to 6' },
+      ]),
+    ),
+  )
+  const user = userEvent.setup()
+  renderWithProviders(<TodosPage />)
+
+  await user.click(await screen.findByRole('button', { name: 'History essay' }))
+
+  const editor = await screen.findByRole('dialog', { name: 'Edit todo' })
+  expect(within(editor).getByRole('textbox', { name: 'Title' })).toHaveValue('History essay')
+  expect(within(editor).getByRole('textbox', { name: 'Notes' })).toHaveValue('Chapter 4 to 6')
 })
