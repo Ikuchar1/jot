@@ -845,3 +845,53 @@ test("Save is disabled while the editor's title is blank, so a blank title can't
   // Give a request that shouldn't have been sent time to arrive
   await expect(waitFor(() => expect(sent).not.toEqual([]), { timeout: 300 })).rejects.toThrow()
 })
+
+test('Cancel closes the editor without saving', async () => {
+  // No PUT handler: a save would fail the test
+  server.use(
+    http.get(todosUrl, () =>
+      HttpResponse.json([{ id: '0199a5b2-0000-7000-8000-000000000001', title: 'Essay', done: false, notes: null }]),
+    ),
+  )
+  const user = userEvent.setup()
+  renderWithProviders(<TodosPage />)
+
+  await user.click(await screen.findByRole('button', { name: 'Essay' }))
+  const editor = await screen.findByRole('dialog', { name: 'Edit todo' })
+  await user.type(within(editor).getByRole('textbox', { name: 'Title' }), ' draft')
+  await user.click(within(editor).getByRole('button', { name: 'Cancel' }))
+
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Edit todo' })).not.toBeInTheDocument())
+  expect(screen.getAllByRole('listitem').map((item) => item.textContent)).toEqual(['Essay'])
+})
+
+test("tapping a todo's checkbox or delete button doesn't open the editor", async () => {
+  server.use(
+    http.get(todosUrl, () =>
+      HttpResponse.json([
+        { id: '0199a5b2-0000-7000-8000-000000000001', title: 'Essay', done: false, notes: null },
+        { id: '0199a5b2-0000-7000-8000-000000000002', title: 'Lab report', done: false, notes: null },
+      ]),
+    ),
+    http.put(`${todosUrl}/:id/done`, () => delay('infinite')),
+    http.delete(`${todosUrl}/:id`, () => delay('infinite')),
+  )
+  const user = userEvent.setup()
+  renderWithProviders(<TodosPage />)
+  const checkbox = await screen.findByRole('checkbox', { name: 'Essay' })
+  // Checking or deleting a todo takes it out of the list, which would close an editor it opened, so this watches for
+  // one opening at any point
+  let editorOpened = false
+  const observer = new MutationObserver((records) => {
+    const added = records.flatMap((record) => [...record.addedNodes]).filter((node) => node instanceof Element)
+    editorOpened ||= added.some((node) => node.matches('[role="dialog"]') || node.querySelector('[role="dialog"]'))
+  })
+  observer.observe(document.body, { childList: true, subtree: true })
+
+  await user.click(checkbox)
+  await user.click(screen.getByRole('button', { name: 'Delete Lab report' }))
+  await waitFor(() => expect(screen.queryByText('Lab report')).not.toBeInTheDocument())
+  observer.disconnect()
+
+  expect(editorOpened).toBe(false)
+})

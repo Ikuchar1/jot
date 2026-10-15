@@ -67,6 +67,7 @@ function EditorForm({ todo, onClose }: { todo: TodoDto; onClose: () => void }) {
         />
       </DialogContent>
       <DialogActions>
+        <Button onClick={onClose}>Cancel</Button>
         <Button type="submit" disabled={!canSave}>
           Save
         </Button>
