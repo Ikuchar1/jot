@@ -15,7 +15,7 @@ export function useQuickAdd() {
         // A list fetch still in flight would overwrite the optimistic todo when it lands
         await queryClient.cancelQueries({ queryKey: todosKey })
         // The UI always sends an ID (below), so the optimistic todo already has its real one
-        const todo: TodoDto = { id: data.id!, title: data.title, done: false }
+        const todo: TodoDto = { id: data.id!, title: data.title, done: false, notes: null }
         queryClient.setQueryData<TodoDto[]>(todosKey, (todos = []) => [...todos, todo])
       },
       // The save failed, so take the todo back out. Only this one: restoring a snapshot from before the add

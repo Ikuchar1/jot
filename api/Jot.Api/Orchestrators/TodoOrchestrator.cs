@@ -30,6 +30,23 @@ public class TodoOrchestrator(JotDbContext db)
         return TodoDto.From(todo);
     }
 
+    public async Task<TodoDto> UpdateAsync(Guid id, UpdateTodoRequest request, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(request.Title))
+        {
+            throw new BrokenRuleException("A todo needs a title.");
+        }
+
+        // Deleted todos are hidden by the query filter, so editing one is a 404 like a todo that never existed
+        var todo = await db.Todos.FindAsync([id], ct)
+            ?? throw new NotFoundException("That todo doesn't exist. It may have been deleted.");
+        todo.Title = request.Title;
+        // Clearing the notes box leaves "" or stray spaces behind; either way the todo has no notes
+        todo.Notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes;
+        await db.SaveChangesAsync(ct);
+        return TodoDto.From(todo);
+    }
+
     // A soft delete: the row stays, so Undo can bring the todo back with every field it had
     public async Task DeleteAsync(Guid id, CancellationToken ct)
     {

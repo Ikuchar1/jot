@@ -9,4 +9,6 @@ export interface TodoDto {
   id: string;
   title: string;
   done: boolean;
+  /** @nullable */
+  notes: string | null;
 }

@@ -1,9 +1,9 @@
-import { act, screen, waitFor, waitForElementToBeRemoved } from '@testing-library/react'
+import { act, screen, waitFor, waitForElementToBeRemoved, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { delay, http, HttpResponse } from 'msw'
 import { version } from 'uuid'
 import { afterEach, expect, test, vi } from 'vitest'
-import type { AddTodoRequest, SetTodoDoneRequest, TodoDto } from '../api/generated/model'
+import type { AddTodoRequest, SetTodoDoneRequest, TodoDto, UpdateTodoRequest } from '../api/generated/model'
 import { renderWithProviders } from '../test/render'
 import { server } from '../test/server'
 import TodosPage from './TodosPage'
@@ -179,12 +179,14 @@ test('a check that saves while a quick-add is still saving keeps the new todo', 
 })
 
 test('a quick-add that saves while a check is still saving keeps the todo in Done', async () => {
-  const saved: TodoDto[] = [{ id: '0199a5b2-0000-7000-8000-000000000001', title: 'Call the dentist', done: false }]
+  const saved: TodoDto[] = [
+    { id: '0199a5b2-0000-7000-8000-000000000001', title: 'Call the dentist', done: false, notes: null },
+  ]
   server.use(
     http.get(todosUrl, () => HttpResponse.json(saved)),
     http.post(todosUrl, async ({ request }) => {
       const { id, title } = (await request.json()) as AddTodoRequest
-      const todo = { id: id!, title, done: false }
+      const todo = { id: id!, title, done: false, notes: null }
       saved.push(todo)
       return HttpResponse.json(todo, { status: 201 })
     }),
@@ -731,9 +733,12 @@ test('after a quick-add saves, the list catches up with the API', async () => {
     http.get(todosUrl, () => HttpResponse.json(saved)),
     http.post(todosUrl, async ({ request }) => {
       const { id, title } = (await request.json()) as AddTodoRequest
-      const todo = { id: id!, title, done: false }
+      const todo = { id: id!, title, done: false, notes: null }
       // Meanwhile another caller (Siri, say) added one too
-      saved.push({ id: '0199a5b2-0000-7000-8000-000000000001', title: 'Call the dentist', done: false }, todo)
+      saved.push(
+        { id: '0199a5b2-0000-7000-8000-000000000001', title: 'Call the dentist', done: false, notes: null },
+        todo,
+      )
       return HttpResponse.json(todo, { status: 201 })
     }),
   )
@@ -744,4 +749,212 @@ test('after a quick-add saves, the list catches up with the API', async () => {
 
   expect(await screen.findByText('Call the dentist')).toBeInTheDocument()
   expect(screen.getByText('Buy milk')).toBeInTheDocument()
+})
+
+test("tapping a todo's title opens the editor with its title and notes filled in", async () => {
+  server.use(
+    http.get(todosUrl, () =>
+      HttpResponse.json([
+        { id: '0199a5b2-0000-7000-8000-000000000001', title: 'History essay', done: false, notes: 'Chapter 4 to 6' },
+      ]),
+    ),
+  )
+  const user = userEvent.setup()
+  renderWithProviders(<TodosPage />)
+
+  await user.click(await screen.findByRole('button', { name: 'History essay' }))
+
+  const editor = await screen.findByRole('dialog', { name: 'Edit todo' })
+  expect(within(editor).getByRole('textbox', { name: 'Title' })).toHaveValue('History essay')
+  expect(within(editor).getByRole('textbox', { name: 'Notes' })).toHaveValue('Chapter 4 to 6')
+})
+
+test('saving an edit closes the editor, shows the new title right away, and saves the title and notes', async () => {
+  const sent: { id: string; body: UpdateTodoRequest }[] = []
+  server.use(
+    http.get(todosUrl, () =>
+      HttpResponse.json([{ id: '0199a5b2-0000-7000-8000-000000000001', title: 'Essay', done: false, notes: null }]),
+    ),
+    // The API never answers, so the new title can only show because the UI changed it optimistically
+    http.put(`${todosUrl}/:id`, async ({ params, request }) => {
+      sent.push({ id: params.id as string, body: (await request.json()) as UpdateTodoRequest })
+      return delay('infinite')
+    }),
+  )
+  const user = userEvent.setup()
+  renderWithProviders(<TodosPage />)
+
+  await user.click(await screen.findByRole('button', { name: 'Essay' }))
+  const editor = await screen.findByRole('dialog', { name: 'Edit todo' })
+  await user.clear(within(editor).getByRole('textbox', { name: 'Title' }))
+  await user.type(within(editor).getByRole('textbox', { name: 'Title' }), 'History essay')
+  await user.type(within(editor).getByRole('textbox', { name: 'Notes' }), 'Due Friday')
+  await user.click(within(editor).getByRole('button', { name: 'Save' }))
+
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Edit todo' })).not.toBeInTheDocument())
+  expect(screen.getAllByRole('listitem').map((item) => item.textContent)).toEqual(['History essay'])
+  await waitFor(() =>
+    expect(sent).toEqual([
+      { id: '0199a5b2-0000-7000-8000-000000000001', body: { title: 'History essay', notes: 'Due Friday' } },
+    ]),
+  )
+})
+
+test('clearing the notes and saving saves the todo with no notes', async () => {
+  const sent: UpdateTodoRequest[] = []
+  server.use(
+    http.get(todosUrl, () =>
+      HttpResponse.json([
+        { id: '0199a5b2-0000-7000-8000-000000000001', title: 'Essay', done: false, notes: 'Due Friday' },
+      ]),
+    ),
+    http.put(`${todosUrl}/:id`, async ({ request }) => {
+      sent.push((await request.json()) as UpdateTodoRequest)
+      return delay('infinite')
+    }),
+  )
+  const user = userEvent.setup()
+  renderWithProviders(<TodosPage />)
+
+  await user.click(await screen.findByRole('button', { name: 'Essay' }))
+  const editor = await screen.findByRole('dialog', { name: 'Edit todo' })
+  await user.clear(within(editor).getByRole('textbox', { name: 'Notes' }))
+  await user.click(within(editor).getByRole('button', { name: 'Save' }))
+
+  await waitFor(() => expect(sent).toEqual([{ title: 'Essay', notes: null }]))
+})
+
+test("Save is disabled while the editor's title is blank, so a blank title can't be saved", async () => {
+  const sent: UpdateTodoRequest[] = []
+  server.use(
+    http.get(todosUrl, () =>
+      HttpResponse.json([{ id: '0199a5b2-0000-7000-8000-000000000001', title: 'Essay', done: false, notes: null }]),
+    ),
+    http.put(`${todosUrl}/:id`, async ({ request }) => {
+      sent.push((await request.json()) as UpdateTodoRequest)
+      return delay('infinite')
+    }),
+  )
+  const user = userEvent.setup()
+  renderWithProviders(<TodosPage />)
+
+  await user.click(await screen.findByRole('button', { name: 'Essay' }))
+  const editor = await screen.findByRole('dialog', { name: 'Edit todo' })
+  const title = within(editor).getByRole('textbox', { name: 'Title' })
+  await user.clear(title)
+  expect(within(editor).getByRole('button', { name: 'Save' })).toBeDisabled()
+  await user.type(title, '   {Enter}')
+
+  expect(within(editor).getByRole('button', { name: 'Save' })).toBeDisabled()
+  expect(screen.getByRole('dialog', { name: 'Edit todo' })).toBeInTheDocument()
+  // Give a request that shouldn't have been sent time to arrive
+  await expect(waitFor(() => expect(sent).not.toEqual([]), { timeout: 300 })).rejects.toThrow()
+})
+
+test('Cancel closes the editor without saving', async () => {
+  // No PUT handler: a save would fail the test
+  server.use(
+    http.get(todosUrl, () =>
+      HttpResponse.json([{ id: '0199a5b2-0000-7000-8000-000000000001', title: 'Essay', done: false, notes: null }]),
+    ),
+  )
+  const user = userEvent.setup()
+  renderWithProviders(<TodosPage />)
+
+  await user.click(await screen.findByRole('button', { name: 'Essay' }))
+  const editor = await screen.findByRole('dialog', { name: 'Edit todo' })
+  await user.type(within(editor).getByRole('textbox', { name: 'Title' }), ' draft')
+  await user.click(within(editor).getByRole('button', { name: 'Cancel' }))
+
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Edit todo' })).not.toBeInTheDocument())
+  expect(screen.getAllByRole('listitem').map((item) => item.textContent)).toEqual(['Essay'])
+})
+
+test("tapping a todo's checkbox or delete button doesn't open the editor", async () => {
+  server.use(
+    http.get(todosUrl, () =>
+      HttpResponse.json([
+        { id: '0199a5b2-0000-7000-8000-000000000001', title: 'Essay', done: false, notes: null },
+        { id: '0199a5b2-0000-7000-8000-000000000002', title: 'Lab report', done: false, notes: null },
+      ]),
+    ),
+    http.put(`${todosUrl}/:id/done`, () => delay('infinite')),
+    http.delete(`${todosUrl}/:id`, () => delay('infinite')),
+  )
+  const user = userEvent.setup()
+  renderWithProviders(<TodosPage />)
+  const checkbox = await screen.findByRole('checkbox', { name: 'Essay' })
+  // Checking or deleting a todo takes it out of the list, which would close an editor it opened, so this watches for
+  // one opening at any point
+  let editorOpened = false
+  const observer = new MutationObserver((records) => {
+    const added = records.flatMap((record) => [...record.addedNodes]).filter((node) => node instanceof Element)
+    editorOpened ||= added.some((node) => node.matches('[role="dialog"]') || node.querySelector('[role="dialog"]'))
+  })
+  observer.observe(document.body, { childList: true, subtree: true })
+
+  await user.click(checkbox)
+  await user.click(screen.getByRole('button', { name: 'Delete Lab report' }))
+  await waitFor(() => expect(screen.queryByText('Lab report')).not.toBeInTheDocument())
+  observer.disconnect()
+
+  expect(editorOpened).toBe(false)
+})
+
+test('an edit that fails to save puts back the todo as it was', async () => {
+  let failTheSave!: () => void
+  const saveFails = new Promise<void>((resolve) => (failTheSave = resolve))
+  server.use(
+    http.get(
+      todosUrl,
+      () =>
+        HttpResponse.json([{ id: '0199a5b2-0000-7000-8000-000000000001', title: 'Essay', done: false, notes: null }]),
+      { once: true },
+    ),
+    // Offline, say: the reload after the save fails too, so only the UI can put the old title back
+    http.get(todosUrl, () => HttpResponse.error()),
+    http.put(`${todosUrl}/:id`, async () => {
+      await saveFails
+      return HttpResponse.error()
+    }),
+  )
+  const user = userEvent.setup()
+  renderWithProviders(<TodosPage />)
+
+  await user.click(await screen.findByRole('button', { name: 'Essay' }))
+  const editor = await screen.findByRole('dialog', { name: 'Edit todo' })
+  await user.type(within(editor).getByRole('textbox', { name: 'Title' }), ' draft')
+  await user.click(within(editor).getByRole('button', { name: 'Save' }))
+  await screen.findByText('Essay draft')
+  failTheSave()
+
+  expect(await screen.findByText("Can't reach Jot. Check your connection and try again.")).toBeInTheDocument()
+  await waitFor(() => expect(screen.getAllByRole('listitem').map((item) => item.textContent)).toEqual(['Essay']))
+})
+
+test('a todo in Done can be opened and edited too', async () => {
+  const sent: UpdateTodoRequest[] = []
+  server.use(
+    http.get(todosUrl, () =>
+      HttpResponse.json([
+        { id: '0199a5b2-0000-7000-8000-000000000001', title: 'Essay', done: true, notes: 'Handed in' },
+      ]),
+    ),
+    http.put(`${todosUrl}/:id`, async ({ request }) => {
+      sent.push((await request.json()) as UpdateTodoRequest)
+      return delay('infinite')
+    }),
+  )
+  const user = userEvent.setup()
+  renderWithProviders(<TodosPage />)
+
+  await user.click(await screen.findByRole('button', { name: 'Done (1)' }))
+  await user.click(await screen.findByRole('button', { name: 'Essay' }))
+  const editor = await screen.findByRole('dialog', { name: 'Edit todo' })
+  expect(within(editor).getByRole('textbox', { name: 'Notes' })).toHaveValue('Handed in')
+  await user.type(within(editor).getByRole('textbox', { name: 'Title' }), ' (history)')
+  await user.click(within(editor).getByRole('button', { name: 'Save' }))
+
+  expect(await screen.findByRole('checkbox', { name: 'Essay (history)' })).toBeChecked()
+  await waitFor(() => expect(sent).toEqual([{ title: 'Essay (history)', notes: 'Handed in' }]))
 })
