@@ -85,9 +85,11 @@ public class TodoOrchestrator(JotDbContext db)
         return TodoDto.From(todo);
     }
 
-    // Not-done todos first, oldest first (UUID v7 IDs are time-ordered); then done ones, most recently done first
-    public async Task<List<TodoDto>> ListAsync(CancellationToken ct) =>
+    // Not-done todos first, oldest first (UUID v7 IDs are time-ordered); then done ones, most recently done first.
+    // With a listId, only that List's todos.
+    public async Task<List<TodoDto>> ListAsync(Guid? listId, CancellationToken ct) =>
         await db.Todos
+            .Where(t => listId == null || t.ListId == listId)
             .OrderBy(t => t.CompletedAt != null)
             .ThenByDescending(t => t.CompletedAt)
             .ThenBy(t => t.Id)

@@ -108,6 +108,16 @@
           "Todos"
         ],
         "operationId": "ListTodos",
+        "parameters": [
+          {
+            "name": "listId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",

@@ -10,7 +10,8 @@ public class TodosController(TodoOrchestrator todos) : ControllerBase
 {
     // Route names become OpenAPI operation IDs, which orval turns into hook names (useListTodos, useAddTodo)
     [HttpGet(Name = "ListTodos")]
-    public Task<List<TodoDto>> ListTodos(CancellationToken ct) => todos.ListAsync(ct);
+    public Task<List<TodoDto>> ListTodos([FromQuery] Guid? listId, CancellationToken ct) =>
+        todos.ListAsync(listId, ct);
 
     [HttpPost(Name = "AddTodo")]
     [ProducesResponseType(StatusCodes.Status201Created)]

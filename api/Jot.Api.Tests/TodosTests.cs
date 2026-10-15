@@ -346,6 +346,32 @@ public class TodosTests(JotApiFactory api)
         Assert.Equal(new ProblemJson(404, "Not Found", "That list doesn't exist. It may have been deleted."), problem);
     }
 
+    [Fact]
+    public async Task A_lists_page_shows_only_its_own_todos()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var listId = await AddListAsync("School", ct);
+        var (inSchool, inInbox) = (Guid.CreateVersion7(), Guid.CreateVersion7());
+        await _client.PostAsJsonAsync("/api/todos", new { id = inSchool, title = "Essay draft", listId }, ct);
+        await _client.PostAsJsonAsync("/api/todos", new { id = inInbox, title = "Groceries" }, ct);
+
+        var todos = await _client.GetFromJsonAsync<List<ListedTodoJson>>($"/api/todos?listId={listId}", ct);
+
+        Assert.Equal([new ListedTodoJson(inSchool, "Essay draft", Done: false, Notes: null, listId)], todos);
+        var inbox = await _client.GetFromJsonAsync<List<ListedTodoJson>>($"/api/todos?listId={await InboxIdAsync(ct)}", ct);
+        Assert.Contains(inbox!, t => t.Id == inInbox);
+        Assert.DoesNotContain(inbox!, t => t.Id == inSchool);
+    }
+
+    // The database is shared by every test, so each list gets a name no other test uses
+    private async Task<Guid> AddListAsync(string name, CancellationToken ct)
+    {
+        var id = Guid.CreateVersion7();
+        var added = await _client.PostAsJsonAsync("/api/lists", new { id, name = $"{name} {id}" }, ct);
+        Assert.Equal(HttpStatusCode.Created, added.StatusCode);
+        return id;
+    }
+
     private async Task<Guid> InboxIdAsync(CancellationToken ct)
     {
         var lists = await _client.GetFromJsonAsync<List<ListJson>>("/api/lists", ct);
