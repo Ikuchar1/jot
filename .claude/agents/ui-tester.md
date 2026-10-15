@@ -22,8 +22,8 @@ The brief gives a PR number or Testing steps written out. It may also name the f
 ## 2. Start the app
 
 1. If the UI port already answers, check it's the folder's app, not another worktree's. `lsof -tiTCP:<ui port> -sTCP:LISTEN` prints its pid, then `lsof -a -p <pid> -d cwd` must print that folder's `ui/`. Run them as two commands; worktree sessions refuse a command built from another's output. If it is, reuse it and skip to step 5. The database then isn't empty, so say in the report that DB checks may find older rows.
-2. Otherwise follow the steps' Setup: drop the slot's database, then start `./dev.sh <slot>` from the folder root as a background command. Never drop `jot`: slot 0's database holds the user's own data.
-3. Wait until `curl -sf -o /dev/null http://localhost:<ui port>` succeeds. A first run restores packages and migrates, so allow up to 3 minutes.
+2. Otherwise follow the steps' Setup: drop the slot's database with exactly `docker compose exec db dropdb -U jot --force --if-exists jot_<slot>` as its own command (split any `&&` chain in the steps into separate commands; run `docker compose up -d --wait` first if Postgres isn't up), then start `./dev.sh <slot>` from the folder root as a background command. Never drop `jot`: slot 0's database holds the user's own data.
+3. Wait until the UI answers: run exactly `curl -sf -o /dev/null http://localhost:<ui port>` as its own command (no loop, no `sleep`, no `&&` — the allow rule only matches it alone), and re-run it until it succeeds. A first run restores packages and migrates, so allow up to 3 minutes.
 4. If `dev.sh` fails with `NETSDK1004` (assets file not found), the worktree is new: run `dotnet restore` in `api/` once, then start it again.
 5. Create the Setup's data through the UI, the way the steps say.
 
