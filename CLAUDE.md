@@ -28,7 +28,7 @@
 - If code changes a documented decision, update the doc in the same commit.
 
 ## Tech Stack
-- **UI** (`ui/`): React 19 + Vite + TypeScript on Node 24 (`.nvmrc`), MUI, TanStack Query, orval (generated API client), `vite-plugin-pwa`
+- **UI** (`ui/`): React 19 + Vite + TypeScript on Node 24 (`.nvmrc`), MUI, TanStack Query, react-router (a page per list), orval (generated API client), `vite-plugin-pwa`
 - **API** (`api/`): ASP.NET Core (.NET 10, SDK pinned in `api/global.json`), controllers + orchestrators, EF Core + Npgsql, ProblemDetails errors, Scalar for browsing the OpenAPI doc
 - **Database**: PostgreSQL in Docker Compose on host port **5433** (brew Postgres 14 already owns 5432). TablePlus → `localhost:5433`, user / password / database all `jot`.
 - **Time zone**: fixed `America/Chicago` for "today" and "overdue".
