@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 
 namespace Jot.Api.Tests;
 
@@ -228,6 +229,91 @@ public class TodosTests(JotApiFactory api)
         Assert.Equal(edited, await response.Content.ReadFromJsonAsync<TodoJson>(ct));
         var todos = await _client.GetFromJsonAsync<List<TodoJson>>("/api/todos", ct);
         Assert.Contains(edited, todos!);
+    }
+
+    [Fact]
+    public async Task New_todo_has_no_notes()
+    {
+        var ct = TestContext.Current.CancellationToken;
+
+        var added = await _client.PostAsJsonAsync("/api/todos", new { title = "Buy stamps" }, ct);
+
+        var json = await added.Content.ReadFromJsonAsync<JsonElement>(ct);
+        Assert.Equal(JsonValueKind.Null, json.GetProperty("notes").ValueKind);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("  \n ")]
+    public async Task Clearing_a_todos_notes_saves_it_with_no_notes(string? notes)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var id = Guid.CreateVersion7();
+        await _client.PostAsJsonAsync("/api/todos", new { id, title = "Lab report" }, ct);
+        await _client.PutAsJsonAsync($"/api/todos/{id}", new { title = "Lab report", notes = "Due Friday" }, ct);
+
+        var response = await _client.PutAsJsonAsync($"/api/todos/{id}", new { title = "Lab report", notes }, ct);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var todos = await _client.GetFromJsonAsync<List<TodoJson>>("/api/todos", ct);
+        Assert.Contains(new TodoJson(id, "Lab report", Done: false, Notes: null), todos!);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task Editing_a_todo_to_a_blank_title_is_rejected_and_it_keeps_its_old_title(string title)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var id = Guid.CreateVersion7();
+        await _client.PostAsJsonAsync("/api/todos", new { id, title = "Book club" }, ct);
+
+        var response = await _client.PutAsJsonAsync($"/api/todos/{id}", new { title, notes = "Chapter 4" }, ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemJson>(ct);
+        Assert.Equal(new ProblemJson(400, "Bad Request", "A todo needs a title."), problem);
+        var todos = await _client.GetFromJsonAsync<List<TodoJson>>("/api/todos", ct);
+        Assert.Contains(new TodoJson(id, "Book club", Done: false), todos!);
+    }
+
+    // Like a todo deleted from another device while this one had its editor open
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Editing_a_todo_that_does_not_exist_or_was_deleted_is_a_404_problem_details(bool existedOnce)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var id = Guid.CreateVersion7();
+        if (existedOnce)
+        {
+            await _client.PostAsJsonAsync("/api/todos", new { id, title = "Dentist" }, ct);
+            await _client.DeleteAsync($"/api/todos/{id}", ct);
+        }
+
+        var response = await _client.PutAsJsonAsync($"/api/todos/{id}", new { title = "Dentist at 3", notes = (string?)null }, ct);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemJson>(ct);
+        Assert.Equal(new ProblemJson(404, "Not Found", "That todo doesn't exist. It may have been deleted."), problem);
+    }
+
+    [Fact]
+    public async Task Restored_todo_keeps_its_notes()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var id = Guid.CreateVersion7();
+        await _client.PostAsJsonAsync("/api/todos", new { id, title = "Physics problem set" }, ct);
+        await _client.PutAsJsonAsync($"/api/todos/{id}", new { title = "Physics problem set", notes = "Questions 1-8" }, ct);
+        await _client.DeleteAsync($"/api/todos/{id}", ct);
+
+        await _client.PostAsync($"/api/todos/{id}/restore", null, ct);
+
+        var todos = await _client.GetFromJsonAsync<List<TodoJson>>("/api/todos", ct);
+        Assert.Contains(new TodoJson(id, "Physics problem set", Done: false, Notes: "Questions 1-8"), todos!);
     }
 
     // The JSON the UI sees, kept apart from the API's DTO so a breaking change to the contract fails here
