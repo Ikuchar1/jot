@@ -25,6 +25,7 @@
       "Bash(docker compose exec db dropdb -U jot --force --if-exists jot_5)",
       "Bash(docker compose exec db dropdb -U jot --force --if-exists jot_6)",
       "Bash(docker compose exec db dropdb -U jot --force --if-exists jot_7)",
+      "Bash(docker compose up -d --wait)"
     ]
   }
 }
