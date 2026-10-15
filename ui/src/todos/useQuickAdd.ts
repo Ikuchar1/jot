@@ -11,8 +11,11 @@ export function useQuickAdd(listId: string) {
 
   const { mutate } = useAddTodo({
     mutation: {
-      // Show the todo right away, before the API answers
+      // Show the todo right away, before the API answers, if it's going on this page's list
       onMutate: async ({ data }) => {
+        if (data.listId !== listId) {
+          return
+        }
         // A list fetch still in flight would overwrite the optimistic todo when it lands
         await queryClient.cancelQueries({ queryKey: todosKey })
         // The UI always sends an ID (below), so the optimistic todo already has its real one
@@ -29,5 +32,6 @@ export function useQuickAdd(listId: string) {
     },
   })
 
-  return (title: string) => mutate({ data: { id: v7(), title, listId } })
+  // addTo is the list the todo goes on
+  return (title: string, addTo: string) => mutate({ data: { id: v7(), title, listId: addTo } })
 }

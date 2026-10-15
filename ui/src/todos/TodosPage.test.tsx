@@ -18,6 +18,7 @@ const todosUrl = 'http://api.test/api/todos'
 
 const listsUrl = 'http://api.test/api/lists'
 const inbox: TodoListDto = { id: '0199e1c0-0000-7000-8000-000000000001', name: 'Inbox', isInbox: true, notDoneCount: 0 }
+const work: TodoListDto = { id: '0199e1c0-0000-7000-8000-000000000002', name: 'Work', isInbox: false, notDoneCount: 0 }
 
 // The page shows its list's name, so every test needs the lists
 beforeEach(() => {
@@ -652,6 +653,37 @@ test('quick-add saves the todo with a UUID v7 the UI created', async () => {
   await waitFor(() => expect(sent).toHaveLength(1))
   expect(sent[0].title).toBe('Buy milk')
   expect(version(sent[0].id!)).toBe(7)
+})
+
+test("quick-add's list picker starts on the page's list, and picking another list adds the todo there", async () => {
+  const sent: AddTodoRequest[] = []
+  server.use(
+    http.get(listsUrl, () => HttpResponse.json([inbox, work])),
+    http.get(todosUrl, () => HttpResponse.json([])),
+    // The API never answers, so only the UI decides which page shows the new todos
+    http.post(todosUrl, async ({ request }) => {
+      sent.push((await request.json()) as AddTodoRequest)
+      return delay('infinite')
+    }),
+  )
+  const user = userEvent.setup()
+  renderWithProviders(<TodosPage listId={work.id} />)
+  const quickAdd = screen.getByRole('textbox', { name: 'Add a todo' })
+
+  expect(await screen.findByRole('combobox', { name: 'List' })).toHaveTextContent('Work')
+  await user.type(quickAdd, 'Write the report{Enter}')
+  await user.click(screen.getByRole('combobox', { name: 'List' }))
+  await user.click(await screen.findByRole('option', { name: 'Inbox' }))
+  await user.type(quickAdd, 'Buy milk{Enter}')
+
+  await waitFor(() => expect(sent).toHaveLength(2))
+  expect(sent.map(({ title, listId }) => ({ title, listId }))).toEqual([
+    { title: 'Write the report', listId: work.id },
+    { title: 'Buy milk', listId: inbox.id },
+  ])
+  // Work's page shows only the todo added to Work
+  expect(screen.getByText('Write the report')).toBeInTheDocument()
+  expect(screen.queryByText('Buy milk')).not.toBeInTheDocument()
 })
 
 test("quick-add doesn't send a blank title", async () => {
