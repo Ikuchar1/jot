@@ -18,6 +18,7 @@ builder.Services.AddDbContext<JotDbContext>(options => options
     .UseSnakeCaseNamingConvention());
 
 builder.Services.AddScoped<TodoOrchestrator>();
+builder.Services.AddScoped<ListOrchestrator>();
 
 // Every error comes back as ProblemDetails: a broken rule is a 400, a todo that doesn't exist a 404, any other
 // exception a 500 that hides its details, and an error with no body of its own (a wrong URL's 404) gets one

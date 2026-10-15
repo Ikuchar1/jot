@@ -11,4 +11,5 @@ export interface TodoDto {
   done: boolean;
   /** @nullable */
   notes: string | null;
+  listId: string;
 }

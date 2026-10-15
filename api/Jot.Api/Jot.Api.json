@@ -5,12 +5,119 @@
     "version": "1.0.0"
   },
   "paths": {
+    "/api/lists": {
+      "get": {
+        "tags": [
+          "Lists"
+        ],
+        "operationId": "ListLists",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TodoListDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TodoListDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TodoListDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Lists"
+        ],
+        "operationId": "AddList",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddListRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddListRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddListRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/TodoListDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TodoListDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TodoListDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/todos": {
       "get": {
         "tags": [
           "Todos"
         ],
         "operationId": "ListTodos",
+        "parameters": [
+          {
+            "name": "listId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -91,6 +198,16 @@
           },
           "400": {
             "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -340,6 +457,24 @@
   },
   "components": {
     "schemas": {
+      "AddListRequest": {
+        "required": [
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "id": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
       "AddTodoRequest": {
         "required": [
           "title"
@@ -350,6 +485,13 @@
             "type": "string"
           },
           "id": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "listId": {
             "type": [
               "null",
               "string"
@@ -412,7 +554,8 @@
           "id",
           "title",
           "done",
-          "notes"
+          "notes",
+          "listId"
         ],
         "type": "object",
         "properties": {
@@ -431,6 +574,39 @@
               "null",
               "string"
             ]
+          },
+          "listId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "TodoListDto": {
+        "required": [
+          "id",
+          "name",
+          "isInbox",
+          "notDoneCount"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "isInbox": {
+            "type": "boolean"
+          },
+          "notDoneCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },
@@ -449,12 +625,22 @@
               "null",
               "string"
             ]
+          },
+          "listId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       }
     }
   },
   "tags": [
+    {
+      "name": "Lists"
+    },
     {
       "name": "Todos"
     }

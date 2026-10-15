@@ -316,6 +316,126 @@ public class TodosTests(JotApiFactory api)
         Assert.Contains(new TodoJson(id, "Physics problem set", Done: false, Notes: "Questions 1-8"), todos!);
     }
 
+    // Like an MCP or Siri caller, which doesn't say which List
+    [Fact]
+    public async Task Todo_added_without_a_list_goes_in_the_inbox()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var inboxId = await InboxIdAsync(ct);
+
+        var added = await _client.PostAsJsonAsync("/api/todos", new { title = "Pick up the dry cleaning" }, ct);
+
+        Assert.Equal(HttpStatusCode.Created, added.StatusCode);
+        var todo = await added.Content.ReadFromJsonAsync<ListedTodoJson>(ct);
+        Assert.Equal(inboxId, todo!.ListId);
+        var todos = await _client.GetFromJsonAsync<List<ListedTodoJson>>("/api/todos", ct);
+        Assert.Contains(todo, todos!);
+    }
+
+    [Fact]
+    public async Task Adding_a_todo_to_a_list_that_does_not_exist_is_a_404_problem_details()
+    {
+        var ct = TestContext.Current.CancellationToken;
+
+        var response = await _client.PostAsJsonAsync(
+            "/api/todos", new { title = "Study for the quiz", listId = Guid.CreateVersion7() }, ct);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemJson>(ct);
+        Assert.Equal(new ProblemJson(404, "Not Found", "That list doesn't exist. It may have been deleted."), problem);
+    }
+
+    [Fact]
+    public async Task A_lists_page_shows_only_its_own_todos()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var listId = await AddListAsync("School", ct);
+        var (inSchool, inInbox) = (Guid.CreateVersion7(), Guid.CreateVersion7());
+        await _client.PostAsJsonAsync("/api/todos", new { id = inSchool, title = "Essay draft", listId }, ct);
+        await _client.PostAsJsonAsync("/api/todos", new { id = inInbox, title = "Groceries" }, ct);
+
+        var todos = await _client.GetFromJsonAsync<List<ListedTodoJson>>($"/api/todos?listId={listId}", ct);
+
+        Assert.Equal([new ListedTodoJson(inSchool, "Essay draft", Done: false, Notes: null, listId)], todos);
+        var inbox = await _client.GetFromJsonAsync<List<ListedTodoJson>>($"/api/todos?listId={await InboxIdAsync(ct)}", ct);
+        Assert.Contains(inbox!, t => t.Id == inInbox);
+        Assert.DoesNotContain(inbox!, t => t.Id == inSchool);
+    }
+
+    [Fact]
+    public async Task Todo_moved_to_another_list_shows_under_the_new_list_and_not_the_old()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (from, to) = (await AddListAsync("School", ct), await AddListAsync("Work", ct));
+        var id = Guid.CreateVersion7();
+        await _client.PostAsJsonAsync("/api/todos", new { id, title = "Expense report", listId = from }, ct);
+
+        var response = await _client.PutAsJsonAsync(
+            $"/api/todos/{id}", new { title = "Expense report", notes = (string?)null, listId = to }, ct);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var moved = new ListedTodoJson(id, "Expense report", Done: false, Notes: null, to);
+        Assert.Equal(moved, await response.Content.ReadFromJsonAsync<ListedTodoJson>(ct));
+        Assert.Equal([moved], await _client.GetFromJsonAsync<List<ListedTodoJson>>($"/api/todos?listId={to}", ct));
+        Assert.Empty((await _client.GetFromJsonAsync<List<ListedTodoJson>>($"/api/todos?listId={from}", ct))!);
+    }
+
+    [Fact]
+    public async Task Moving_a_todo_to_a_list_that_does_not_exist_is_a_404_and_it_stays_where_it_was()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var listId = await AddListAsync("School", ct);
+        var id = Guid.CreateVersion7();
+        await _client.PostAsJsonAsync("/api/todos", new { id, title = "Flashcards", listId }, ct);
+
+        var response = await _client.PutAsJsonAsync(
+            $"/api/todos/{id}", new { title = "Flashcards", notes = (string?)null, listId = Guid.CreateVersion7() }, ct);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemJson>(ct);
+        Assert.Equal(new ProblemJson(404, "Not Found", "That list doesn't exist. It may have been deleted."), problem);
+        var todos = await _client.GetFromJsonAsync<List<ListedTodoJson>>($"/api/todos?listId={listId}", ct);
+        Assert.Contains(todos!, t => t.Id == id);
+    }
+
+    // Undo on a List's page brings the todo back on that page, not in the Inbox
+    [Fact]
+    public async Task Restored_todo_comes_back_in_its_list()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var listId = await AddListAsync("Work", ct);
+        var id = Guid.CreateVersion7();
+        await _client.PostAsJsonAsync("/api/todos", new { id, title = "Quarterly review", listId }, ct);
+        await _client.DeleteAsync($"/api/todos/{id}", ct);
+
+        var response = await _client.PostAsync($"/api/todos/{id}/restore", null, ct);
+
+        var restored = new ListedTodoJson(id, "Quarterly review", Done: false, Notes: null, listId);
+        Assert.Equal(restored, await response.Content.ReadFromJsonAsync<ListedTodoJson>(ct));
+        Assert.Equal([restored], await _client.GetFromJsonAsync<List<ListedTodoJson>>($"/api/todos?listId={listId}", ct));
+    }
+
+    // The database is shared by every test, so each list gets a name no other test uses
+    private async Task<Guid> AddListAsync(string name, CancellationToken ct)
+    {
+        var id = Guid.CreateVersion7();
+        var added = await _client.PostAsJsonAsync("/api/lists", new { id, name = $"{name} {id}" }, ct);
+        Assert.Equal(HttpStatusCode.Created, added.StatusCode);
+        return id;
+    }
+
+    private async Task<Guid> InboxIdAsync(CancellationToken ct)
+    {
+        var lists = await _client.GetFromJsonAsync<List<ListJson>>("/api/lists", ct);
+        return lists!.Single(l => l.IsInbox).Id;
+    }
+
     // The JSON the UI sees, kept apart from the API's DTO so a breaking change to the contract fails here
     private sealed record TodoJson(Guid Id, string Title, bool Done, string? Notes = null);
+
+    // The same, with the List it's in, for the tests about lists
+    private sealed record ListedTodoJson(Guid Id, string Title, bool Done, string? Notes, Guid ListId);
+
+    private sealed record ListJson(Guid Id, string Name, bool IsInbox, int NotDoneCount);
 }

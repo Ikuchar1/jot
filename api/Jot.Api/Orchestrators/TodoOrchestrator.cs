@@ -14,10 +14,28 @@ public class TodoOrchestrator(JotDbContext db)
             throw new BrokenRuleException("A todo needs a title.");
         }
 
-        var todo = new Todo { Id = request.Id ?? Guid.CreateVersion7(), Title = request.Title };
+        var todo = new Todo
+        {
+            Id = request.Id ?? Guid.CreateVersion7(),
+            Title = request.Title,
+            ListId = await ListIdAsync(request.ListId, ct),
+        };
         db.Todos.Add(todo);
         await db.SaveChangesAsync(ct);
         return TodoDto.From(todo);
+    }
+
+    // No list means the Inbox; a list that doesn't exist (deleted from another device, say) is a 404
+    private async Task<Guid> ListIdAsync(Guid? listId, CancellationToken ct)
+    {
+        if (listId is null)
+        {
+            return await db.TodoLists.Where(l => l.IsInbox).Select(l => l.Id).SingleAsync(ct);
+        }
+
+        return await db.TodoLists.AnyAsync(l => l.Id == listId, ct)
+            ? listId.Value
+            : throw new NotFoundException("That list doesn't exist. It may have been deleted.");
     }
 
     public async Task<TodoDto> SetDoneAsync(Guid id, bool done, CancellationToken ct)
@@ -43,6 +61,7 @@ public class TodoOrchestrator(JotDbContext db)
         todo.Title = request.Title;
         // Clearing the notes box leaves "" or stray spaces behind; either way the todo has no notes
         todo.Notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes;
+        todo.ListId = await ListIdAsync(request.ListId, ct);
         await db.SaveChangesAsync(ct);
         return TodoDto.From(todo);
     }
@@ -67,9 +86,11 @@ public class TodoOrchestrator(JotDbContext db)
         return TodoDto.From(todo);
     }
 
-    // Not-done todos first, oldest first (UUID v7 IDs are time-ordered); then done ones, most recently done first
-    public async Task<List<TodoDto>> ListAsync(CancellationToken ct) =>
+    // Not-done todos first, oldest first (UUID v7 IDs are time-ordered); then done ones, most recently done first.
+    // With a listId, only that List's todos.
+    public async Task<List<TodoDto>> ListAsync(Guid? listId, CancellationToken ct) =>
         await db.Todos
+            .Where(t => listId == null || t.ListId == listId)
             .OrderBy(t => t.CompletedAt != null)
             .ThenByDescending(t => t.CompletedAt)
             .ThenBy(t => t.Id)

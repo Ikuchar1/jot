@@ -43,6 +43,12 @@ namespace Jot.Api.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("deleted_at");
 
+                    b.Property<Guid>("ListId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValue(new Guid("0199e1c0-0000-7000-8000-000000000001"))
+                        .HasColumnName("list_id");
+
                     b.Property<string>("Notes")
                         .HasColumnType("text")
                         .HasColumnName("notes");
@@ -55,7 +61,62 @@ namespace Jot.Api.Data.Migrations
                     b.HasKey("Id")
                         .HasName("pk_todos");
 
+                    b.HasIndex("ListId")
+                        .HasDatabaseName("ix_todos_list_id");
+
                     b.ToTable("todos", (string)null);
+                });
+
+            modelBuilder.Entity("Jot.Api.Data.TodoList", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<bool>("IsInbox")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_inbox");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("name");
+
+                    b.HasKey("Id")
+                        .HasName("pk_todo_lists");
+
+                    b.HasIndex("IsInbox")
+                        .IsUnique()
+                        .HasDatabaseName("ix_todo_lists_is_inbox")
+                        .HasFilter("is_inbox");
+
+                    b.ToTable("todo_lists", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("0199e1c0-0000-7000-8000-000000000001"),
+                            CreatedAt = new DateTime(2026, 10, 14, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsInbox = true,
+                            Name = "Inbox"
+                        });
+                });
+
+            modelBuilder.Entity("Jot.Api.Data.Todo", b =>
+                {
+                    b.HasOne("Jot.Api.Data.TodoList", null)
+                        .WithMany()
+                        .HasForeignKey("ListId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_todos_todo_lists_list_id");
                 });
 #pragma warning restore 612, 618
         }

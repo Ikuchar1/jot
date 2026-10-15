@@ -10,11 +10,12 @@ import type { TodoDto } from '../api/generated/model'
 import TodoEditor from './TodoEditor'
 import { useSetDone } from './useSetDone'
 
-type Props = { todo: TodoDto; onDelete: (todo: TodoDto) => void }
+// listId is the list whose page it's on
+type Props = { todo: TodoDto; listId: string; onDelete: (todo: TodoDto) => void }
 
-export default function TodoItem({ todo, onDelete }: Props) {
+export default function TodoItem({ todo, listId, onDelete }: Props) {
   const titleId = useId()
-  const setDone = useSetDone()
+  const setDone = useSetDone(listId)
   const [editing, setEditing] = useState(false)
 
   return (
@@ -38,7 +39,7 @@ export default function TodoItem({ todo, onDelete }: Props) {
       <ListItemButton onClick={() => setEditing(true)} sx={{ borderRadius: 1 }}>
         <ListItemText id={titleId} primary={todo.title} />
       </ListItemButton>
-      <TodoEditor todo={todo} open={editing} onClose={() => setEditing(false)} />
+      <TodoEditor todo={todo} listId={listId} open={editing} onClose={() => setEditing(false)} />
     </ListItem>
   )
 }

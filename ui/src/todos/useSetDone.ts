@@ -3,9 +3,10 @@ import { getListTodosQueryKey, useSetTodoDone } from '../api/generated'
 import type { TodoDto } from '../api/generated/model'
 import { resyncTodos } from './resyncTodos'
 
-export function useSetDone() {
+// listId is the list whose page it's checked on
+export function useSetDone(listId: string) {
   const queryClient = useQueryClient()
-  const todosKey = getListTodosQueryKey()
+  const todosKey = getListTodosQueryKey({ listId })
 
   // Changing it in place is enough to move it: the list has every not-done todo before the done ones, so a todo
   // checked off lands at the top of Done, where the API puts it too
