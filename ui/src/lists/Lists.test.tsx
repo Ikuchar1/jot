@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { http, HttpResponse } from 'msw'
+import { delay, http, HttpResponse } from 'msw'
 import { version } from 'uuid'
 import { expect, test } from 'vitest'
 import type {
@@ -158,4 +158,23 @@ test("the sidebar's counts catch up after adding, checking and moving a todo", a
   await user.click(within(editor).getByRole('button', { name: 'Save' }))
   await waitFor(() => expect(countOf('Inbox')).toBe('0'))
   expect(countOf('Work')).toBe('1')
+})
+
+test("Undo on a list's page brings the deleted todo back on that page", async () => {
+  fakeApi([
+    todo('0199a5b2-0000-7000-8000-000000000001', 'Write the report', work.id),
+    todo('0199a5b2-0000-7000-8000-000000000002', 'Book the room', work.id),
+  ])
+  // The restore never answers, so the todo can only come back because the UI put it back on this page
+  server.use(http.post(`${todosUrl}/:id/restore`, () => delay('infinite')))
+  const user = userEvent.setup()
+  renderWithProviders(<App />, { route: `/lists/${work.id}` })
+  const main = within(screen.getByRole('main'))
+
+  await user.click(await main.findByRole('button', { name: 'Delete Write the report' }))
+  await waitFor(() => expect(main.queryByText('Write the report')).not.toBeInTheDocument())
+  await waitFor(() => expect(countOf('Work')).toBe('1'))
+  await user.click(screen.getByRole('button', { name: 'Undo' }))
+
+  expect(await main.findByText('Write the report')).toBeInTheDocument()
 })
