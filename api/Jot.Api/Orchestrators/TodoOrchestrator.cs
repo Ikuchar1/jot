@@ -14,10 +14,28 @@ public class TodoOrchestrator(JotDbContext db)
             throw new BrokenRuleException("A todo needs a title.");
         }
 
-        var todo = new Todo { Id = request.Id ?? Guid.CreateVersion7(), Title = request.Title };
+        var todo = new Todo
+        {
+            Id = request.Id ?? Guid.CreateVersion7(),
+            Title = request.Title,
+            ListId = await ListIdAsync(request.ListId, ct),
+        };
         db.Todos.Add(todo);
         await db.SaveChangesAsync(ct);
         return TodoDto.From(todo);
+    }
+
+    // No list means the Inbox; a list that doesn't exist (deleted from another device, say) is a 404
+    private async Task<Guid> ListIdAsync(Guid? listId, CancellationToken ct)
+    {
+        if (listId is null)
+        {
+            return await db.TodoLists.Where(l => l.IsInbox).Select(l => l.Id).SingleAsync(ct);
+        }
+
+        return await db.TodoLists.AnyAsync(l => l.Id == listId, ct)
+            ? listId.Value
+            : throw new NotFoundException("That list doesn't exist. It may have been deleted.");
     }
 
     public async Task<TodoDto> SetDoneAsync(Guid id, bool done, CancellationToken ct)

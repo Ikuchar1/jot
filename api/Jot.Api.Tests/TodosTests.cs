@@ -316,6 +316,47 @@ public class TodosTests(JotApiFactory api)
         Assert.Contains(new TodoJson(id, "Physics problem set", Done: false, Notes: "Questions 1-8"), todos!);
     }
 
+    // Like an MCP or Siri caller, which doesn't say which List
+    [Fact]
+    public async Task Todo_added_without_a_list_goes_in_the_inbox()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var inboxId = await InboxIdAsync(ct);
+
+        var added = await _client.PostAsJsonAsync("/api/todos", new { title = "Pick up the dry cleaning" }, ct);
+
+        Assert.Equal(HttpStatusCode.Created, added.StatusCode);
+        var todo = await added.Content.ReadFromJsonAsync<ListedTodoJson>(ct);
+        Assert.Equal(inboxId, todo!.ListId);
+        var todos = await _client.GetFromJsonAsync<List<ListedTodoJson>>("/api/todos", ct);
+        Assert.Contains(todo, todos!);
+    }
+
+    [Fact]
+    public async Task Adding_a_todo_to_a_list_that_does_not_exist_is_a_404_problem_details()
+    {
+        var ct = TestContext.Current.CancellationToken;
+
+        var response = await _client.PostAsJsonAsync(
+            "/api/todos", new { title = "Study for the quiz", listId = Guid.CreateVersion7() }, ct);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemJson>(ct);
+        Assert.Equal(new ProblemJson(404, "Not Found", "That list doesn't exist. It may have been deleted."), problem);
+    }
+
+    private async Task<Guid> InboxIdAsync(CancellationToken ct)
+    {
+        var lists = await _client.GetFromJsonAsync<List<ListJson>>("/api/lists", ct);
+        return lists!.Single(l => l.IsInbox).Id;
+    }
+
     // The JSON the UI sees, kept apart from the API's DTO so a breaking change to the contract fails here
     private sealed record TodoJson(Guid Id, string Title, bool Done, string? Notes = null);
+
+    // The same, with the List it's in, for the tests about lists
+    private sealed record ListedTodoJson(Guid Id, string Title, bool Done, string? Notes, Guid ListId);
+
+    private sealed record ListJson(Guid Id, string Name, bool IsInbox, int NotDoneCount);
 }

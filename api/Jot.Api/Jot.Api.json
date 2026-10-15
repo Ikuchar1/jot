@@ -394,6 +394,13 @@
               "string"
             ],
             "format": "uuid"
+          },
+          "listId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },
@@ -451,7 +458,8 @@
           "id",
           "title",
           "done",
-          "notes"
+          "notes",
+          "listId"
         ],
         "type": "object",
         "properties": {
@@ -470,6 +478,10 @@
               "null",
               "string"
             ]
+          },
+          "listId": {
+            "type": "string",
+            "format": "uuid"
           }
         }
       },
