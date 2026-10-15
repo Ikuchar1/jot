@@ -179,12 +179,12 @@ test('a check that saves while a quick-add is still saving keeps the new todo', 
 })
 
 test('a quick-add that saves while a check is still saving keeps the todo in Done', async () => {
-  const saved: TodoDto[] = [{ id: '0199a5b2-0000-7000-8000-000000000001', title: 'Call the dentist', done: false }]
+  const saved: TodoDto[] = [{ id: '0199a5b2-0000-7000-8000-000000000001', title: 'Call the dentist', done: false, notes: null }]
   server.use(
     http.get(todosUrl, () => HttpResponse.json(saved)),
     http.post(todosUrl, async ({ request }) => {
       const { id, title } = (await request.json()) as AddTodoRequest
-      const todo = { id: id!, title, done: false }
+      const todo = { id: id!, title, done: false, notes: null }
       saved.push(todo)
       return HttpResponse.json(todo, { status: 201 })
     }),
@@ -731,9 +731,9 @@ test('after a quick-add saves, the list catches up with the API', async () => {
     http.get(todosUrl, () => HttpResponse.json(saved)),
     http.post(todosUrl, async ({ request }) => {
       const { id, title } = (await request.json()) as AddTodoRequest
-      const todo = { id: id!, title, done: false }
+      const todo = { id: id!, title, done: false, notes: null }
       // Meanwhile another caller (Siri, say) added one too
-      saved.push({ id: '0199a5b2-0000-7000-8000-000000000001', title: 'Call the dentist', done: false }, todo)
+      saved.push({ id: '0199a5b2-0000-7000-8000-000000000001', title: 'Call the dentist', done: false, notes: null }, todo)
       return HttpResponse.json(todo, { status: 201 })
     }),
   )

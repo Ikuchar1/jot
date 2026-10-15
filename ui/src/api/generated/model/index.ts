@@ -9,3 +9,4 @@ export * from './addTodoRequest';
 export * from './problemDetails';
 export * from './setTodoDoneRequest';
 export * from './todoDto';
+export * from './updateTodoRequest';

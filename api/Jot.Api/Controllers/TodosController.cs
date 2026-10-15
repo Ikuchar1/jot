@@ -29,6 +29,14 @@ public class TodosController(TodoOrchestrator todos) : ControllerBase
     public Task<TodoDto> SetTodoDone(Guid id, SetTodoDoneRequest request, CancellationToken ct) =>
         todos.SetDoneAsync(id, request.Done, ct);
 
+    // Saving the editor: replaces the todo's title and notes
+    [HttpPut("{id:guid}", Name = "UpdateTodo")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+    public Task<TodoDto> UpdateTodo(Guid id, UpdateTodoRequest request, CancellationToken ct) =>
+        todos.UpdateAsync(id, request, ct);
+
     // Deleting an already-deleted todo is still a 204, so a retry is safe
     [HttpDelete("{id:guid}", Name = "DeleteTodo")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]

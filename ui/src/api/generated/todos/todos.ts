@@ -27,7 +27,8 @@ import type {
   AddTodoRequest,
   ProblemDetails,
   SetTodoDoneRequest,
-  TodoDto
+  TodoDto,
+  UpdateTodoRequest
 } from '../model';
 
 import { jotFetch } from '../../fetcher';
@@ -309,6 +310,88 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getSetTodoDoneMutationOptions(options), queryClient);
+    }
+    export const getUpdateTodoUrl = (id: string,) => {
+
+
+
+
+  return `/api/todos/${id}`
+}
+
+export const updateTodo = async (id: string,
+    updateTodoRequest: UpdateTodoRequest, options?: Parameters<typeof jotFetch>[1]): Promise<TodoDto> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return jotFetch<TodoDto>(getUpdateTodoUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(updateTodoRequest)
+  }
+);}
+
+
+
+
+
+export const getUpdateTodoMutationKey = () => ['updateTodo'] as const;
+
+export const getUpdateTodoMutationOptions = <TError = ErrorType<ProblemDetails>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTodo>>, TError,UpdateTodoMutationVariables, TContext>, request?: SecondParameter<typeof jotFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateTodo>>, TError,UpdateTodoMutationVariables, TContext> => {
+
+const mutationKey = getUpdateTodoMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateTodo>>, UpdateTodoMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateTodo(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateTodoMutationResult = NonNullable<Awaited<ReturnType<typeof updateTodo>>>
+    export type UpdateTodoMutationBody = UpdateTodoRequest
+    export type UpdateTodoMutationError = ErrorType<ProblemDetails>
+    export type UpdateTodoMutationVariables = {id: string;data: UpdateTodoRequest}
+
+    export const useUpdateTodo = <TError = ErrorType<ProblemDetails>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTodo>>, TError,UpdateTodoMutationVariables, TContext>, request?: SecondParameter<typeof jotFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof updateTodo>>,
+        TError,
+        UpdateTodoMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateTodoMutationOptions(options), queryClient);
     }
     export const getDeleteTodoUrl = (id: string,) => {
 

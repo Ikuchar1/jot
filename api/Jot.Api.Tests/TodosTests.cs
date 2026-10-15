@@ -213,6 +213,23 @@ public class TodosTests(JotApiFactory api)
         Assert.Equal(new ProblemJson(404, "Not Found", "That todo doesn't exist. It may have been deleted."), problem);
     }
 
+    [Fact]
+    public async Task Edited_todo_shows_its_new_title_and_notes_in_the_list()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var id = Guid.CreateVersion7();
+        await _client.PostAsJsonAsync("/api/todos", new { id, title = "Essay" }, ct);
+
+        var response = await _client.PutAsJsonAsync(
+            $"/api/todos/{id}", new { title = "History essay", notes = "https://canvas.example/essay" }, ct);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var edited = new TodoJson(id, "History essay", Done: false, Notes: "https://canvas.example/essay");
+        Assert.Equal(edited, await response.Content.ReadFromJsonAsync<TodoJson>(ct));
+        var todos = await _client.GetFromJsonAsync<List<TodoJson>>("/api/todos", ct);
+        Assert.Contains(edited, todos!);
+    }
+
     // The JSON the UI sees, kept apart from the API's DTO so a breaking change to the contract fails here
-    private sealed record TodoJson(Guid Id, string Title, bool Done);
+    private sealed record TodoJson(Guid Id, string Title, bool Done, string? Notes = null);
 }
