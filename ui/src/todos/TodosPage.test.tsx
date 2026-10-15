@@ -895,3 +895,34 @@ test("tapping a todo's checkbox or delete button doesn't open the editor", async
 
   expect(editorOpened).toBe(false)
 })
+
+test('an edit that fails to save puts back the todo as it was', async () => {
+  let failTheSave!: () => void
+  const saveFails = new Promise<void>((resolve) => (failTheSave = resolve))
+  server.use(
+    http.get(
+      todosUrl,
+      () =>
+        HttpResponse.json([{ id: '0199a5b2-0000-7000-8000-000000000001', title: 'Essay', done: false, notes: null }]),
+      { once: true },
+    ),
+    // Offline, say: the reload after the save fails too, so only the UI can put the old title back
+    http.get(todosUrl, () => HttpResponse.error()),
+    http.put(`${todosUrl}/:id`, async () => {
+      await saveFails
+      return HttpResponse.error()
+    }),
+  )
+  const user = userEvent.setup()
+  renderWithProviders(<TodosPage />)
+
+  await user.click(await screen.findByRole('button', { name: 'Essay' }))
+  const editor = await screen.findByRole('dialog', { name: 'Edit todo' })
+  await user.type(within(editor).getByRole('textbox', { name: 'Title' }), ' draft')
+  await user.click(within(editor).getByRole('button', { name: 'Save' }))
+  await screen.findByText('Essay draft')
+  failTheSave()
+
+  expect(await screen.findByText("Can't reach Jot. Check your connection and try again.")).toBeInTheDocument()
+  await waitFor(() => expect(screen.getAllByRole('listitem').map((item) => item.textContent)).toEqual(['Essay']))
+})
